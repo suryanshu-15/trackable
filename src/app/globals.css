@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { -webkit-text-size-adjust: 100%; }
+body { @apply bg-slate-50 text-slate-900 antialiased; }
+
+/* Label printing: only the labels are printed, one per page at the configured label size. */
+@media print {
+  body { background: white; }
+  .no-print { display: none !important; }
+}
