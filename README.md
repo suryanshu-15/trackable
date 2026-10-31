@@ -34,5 +34,5 @@ The browser only talks to this app. `/bff/*` forwards to Django's `/api/v1/*` an
 token, which is kept in httpOnly cookies. Every business rule and permission is enforced by the backend;
 screens show the actions the API allows and re-read server state after each change.
 
-See the backend repository's `docs/` for the functionality checklist, the end-to-end test guide,
-decisions and the runbook.
+Project documents (functionality checklist, end-to-end test guide, decisions, runbook) are kept
+outside the repositories.
