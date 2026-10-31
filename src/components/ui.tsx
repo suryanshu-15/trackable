@@ -9,11 +9,11 @@ export function cx(...parts: (string | false | null | undefined)[]) {
 }
 
 const BUTTON = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-600/50',
+  primary: 'bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-600/50 disabled:shadow-none',
   secondary: 'bg-white text-slate-800 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 disabled:text-slate-400',
   danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/50',
   success: 'bg-emerald-600 text-white hover:bg-emerald-700 disabled:bg-emerald-600/50',
-  ghost: 'text-slate-700 hover:bg-slate-100 disabled:text-slate-400',
+  ghost: 'text-slate-700 shadow-none hover:bg-slate-100 disabled:text-slate-400',
 };
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -33,7 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-md font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed',
         size === 'sm' && 'px-2.5 py-1.5 text-xs',
         size === 'md' && 'px-3.5 py-2 text-sm',
         size === 'lg' && 'px-5 py-3 text-base',
@@ -55,7 +55,7 @@ export function LinkButton({ href, children, variant = 'secondary', size = 'md' 
     <Link
       href={href}
       className={cx(
-        'inline-flex items-center justify-center gap-2 rounded-md font-medium transition',
+        'inline-flex items-center justify-center gap-2 rounded-lg font-semibold shadow-sm transition',
         size === 'sm' ? 'px-2.5 py-1.5 text-xs' : size === 'lg' ? 'px-5 py-3 text-base' : 'px-3.5 py-2 text-sm',
         BUTTON[variant],
       )}
@@ -125,23 +125,23 @@ export function Card({ title, actions, children, className }: {
   title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string;
 }) {
   return (
-    <section className={cx('rounded-lg border border-slate-200 bg-white shadow-sm', className)}>
+    <section className={cx('rounded-xl border border-slate-200/80 bg-white shadow-card', className)}>
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
-          {title && <h2 className="text-sm font-semibold text-slate-800">{title}</h2>}
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
+          {title && <h2 className="text-[15px] font-semibold text-slate-800">{title}</h2>}
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
         </header>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-5">{children}</div>
     </section>
   );
 }
 
 export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
   return (
-    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
         {subtitle && <div className="mt-1 text-sm text-slate-500">{subtitle}</div>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -150,19 +150,22 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
 }
 
 const TONE = {
-  neutral: 'border-slate-200',
-  warn: 'border-amber-300 bg-amber-50',
-  bad: 'border-red-300 bg-red-50',
-  good: 'border-emerald-300 bg-emerald-50',
+  neutral: { card: 'border-slate-200/80', icon: 'bg-brand-50 text-brand-600' },
+  warn: { card: 'border-amber-200 bg-amber-50/60', icon: 'bg-amber-100 text-amber-700' },
+  bad: { card: 'border-red-200 bg-red-50/60', icon: 'bg-red-100 text-red-700' },
+  good: { card: 'border-emerald-200 bg-emerald-50/60', icon: 'bg-emerald-100 text-emerald-700' },
 };
 
-export function Stat({ label, value, href, tone = 'neutral', hint }: {
-  label: string; value: ReactNode; href?: string; tone?: keyof typeof TONE; hint?: ReactNode;
+export function Stat({ label, value, href, tone = 'neutral', hint, icon }: {
+  label: string; value: ReactNode; href?: string; tone?: keyof typeof TONE; hint?: ReactNode; icon?: ReactNode;
 }) {
   const body = (
-    <div className={cx('h-full rounded-lg border bg-white p-4 shadow-sm', TONE[tone], href && 'transition hover:shadow-md')}>
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-slate-900">{value}</div>
+    <div className={cx('h-full rounded-xl border bg-white p-4 shadow-card', TONE[tone].card, href && 'transition hover:-translate-y-0.5 hover:shadow-lg')}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+        {icon && <span className={cx('flex h-9 w-9 flex-none items-center justify-center rounded-lg', TONE[tone].icon)}>{icon}</span>}
+      </div>
+      <div className="mt-1 text-2xl font-bold tracking-tight text-slate-900">{value}</div>
       {hint && <div className="mt-1 text-xs text-slate-500">{hint}</div>}
     </div>
   );
@@ -244,7 +247,7 @@ export function Pagination({ page, totalPages, count, onPage }: {
 
 export function Table({ head, children, empty, emptyText = 'No records match.' }: { head: ReactNode[]; children: ReactNode; empty?: boolean; emptyText?: string }) {
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200">
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>

@@ -14,8 +14,8 @@ export function BarList({ rows, format = (v) => String(v), empty = 'No data in t
       {rows.map((r) => (
         <li key={r.label} className="grid grid-cols-[minmax(6rem,10rem)_1fr_auto] items-center gap-3 text-sm" title={`${r.label}: ${format(r.value)}${r.hint ? ` · ${r.hint}` : ''}`}>
           <span className="truncate text-slate-600">{r.label}</span>
-          <span className="h-3 rounded-r bg-slate-100">
-            <span className="block h-3 rounded-r bg-brand-500 transition-all" style={{ width: `${(r.value / max) * 100}%` }} />
+          <span className="h-3 rounded-r bg-slate-100/80">
+            <span className="block h-3 rounded-r transition-all" style={{ width: `${(r.value / max) * 100}%`, background: '#2a78d6' }} />
           </span>
           <span className="tabular-nums text-slate-900">{format(r.value)}</span>
         </li>

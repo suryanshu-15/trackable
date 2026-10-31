@@ -113,7 +113,7 @@ export function LabelSheet() {
           .label-sheet { display: block !important; }
           .label { margin: 0 !important; box-shadow: none !important; border: none !important; break-after: page; page-break-after: always; }
           main { padding: 0 !important; max-width: none !important; }
-          .lg\\:pl-60 { padding-left: 0 !important; }
+          .lg\\:pl-72 { padding-left: 0 !important; }
         }
       `}</style>
     </>
