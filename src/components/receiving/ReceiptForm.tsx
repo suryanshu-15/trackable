@@ -121,7 +121,7 @@ export function ReceiptForm({ initial, submitLabel, draftLabel, onSubmit, onCanc
       <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <legend className="mb-2 text-sm font-semibold text-slate-800">Supplier & invoice</legend>
         <MasterSelect kind="supplier" label="Supplier" required value={v.supplier} onChange={(val) => set('supplier')({ target: { value: val } })} error={errors.supplier}
-          options={suppliers.items.map((s) => ({ value: s.id, label: `${s.name} (${s.code})` }))} />
+          options={suppliers.items.map((s) => ({ value: s.id, label: `${s.name} (${s.code})`, keywords: [s.gst_number, s.contact_person, s.phone].join(' ') }))} />
         <TextField label="Invoice number" required value={v.invoice_number} onChange={set('invoice_number')} error={errors.invoice_number} />
         <TextField label="Invoice date" type="date" required value={v.invoice_date} onChange={set('invoice_date')} error={errors.invoice_date} />
         <TextField label="Purchase order" value={v.purchase_order_number} onChange={set('purchase_order_number')} error={errors.purchase_order_number} />

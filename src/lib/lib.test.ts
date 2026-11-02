@@ -53,6 +53,8 @@ describe('role navigation (UI only — the API enforces permissions)', () => {
     expect(factory).not.toContain('/audit');
     expect(navFor('AUDITOR').map((n) => n.href)).toContain('/audit');
     expect(navFor('GATE').map((n) => n.href)).not.toContain('/admin/users');
+    expect(navFor('MANAGER').map((n) => n.href)).toContain('/admin/master');
+    expect(navFor('GATE').map((n) => n.href)).not.toContain('/admin/master');
   });
   it('mirrors server-side separation of duties', () => {
     expect(can.approveAdjustment('WAREHOUSE')).toBe(false);
@@ -84,5 +86,14 @@ describe('storable locations', () => {
   it('offers only leaf locations', () => {
     const locs = [{ id: 1, parent: null }, { id: 2, parent: 1 }, { id: 3, parent: 2 }, { id: 4, parent: null }] as unknown as Location[];
     expect(storableLocations(locs).map((l) => l.id)).toEqual([3, 4]);
+  });
+});
+
+describe('truck finder', async () => {
+  const { matchesTruck } = await import('./trucks');
+  const r = { vehicle_number: 'OD02AB4521', receipt_number: 'GR-20261102-ABCD1234', invoice_number: 'TEST-INV-1001' };
+  it('matches plates however they are typed, and receipt / invoice numbers', () => {
+    for (const q of ['OD02AB4521', 'od 02 ab-4521', '4521', 'ab45', 'inv-1001', 'abcd1234', '']) expect(matchesTruck(r, q)).toBe(true);
+    for (const q of ['OD02AB4522', 'MH12']) expect(matchesTruck(r, q)).toBe(false);
   });
 });

@@ -6,7 +6,7 @@ import { useMe, usePagedList, useRefresh } from '@/lib/hooks';
 import { fmtDateTime } from '@/lib/format';
 import type { Role, User } from '@/lib/types';
 import { Button, Card, ErrorState, Loading, PageHeader, Pagination, Table, Td } from '@/components/ui';
-import { SelectField, TextField } from '@/components/forms';
+import { PasswordField, SelectField, TextField } from '@/components/forms';
 import { Badge } from '@/components/StatusBadge';
 import { ConfirmDialog } from '@/components/Dialog';
 import { useToast } from '@/components/Toast';
@@ -79,7 +79,7 @@ export default function UsersPage() {
           <TextField label="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
           <SelectField label="Role" required value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} options={ROLES} />
           <TextField label="Employee ID" value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} />
-          <TextField label="Initial password" type="password" required autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="col-span-2" />
+          <PasswordField label="Initial password" required autoComplete="new-password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="col-span-2" />
         </div>
       </ConfirmDialog>
       <ConfirmDialog open={!!roleFor} onClose={() => setRoleFor(null)} title={`Change role — ${roleFor?.username}`} confirmLabel="Change role"

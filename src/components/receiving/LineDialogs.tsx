@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ApiError, api, newIdempotencyKey, post } from '@/lib/api';
-import { useMaterials, usePolicy, useUnits } from '@/lib/hooks';
+import { ApiError, api, newIdempotencyKey, post, type Paginated } from '@/lib/api';
+import { useApi, useMaterials, usePolicy, useUnits } from '@/lib/hooks';
 import { fmtQty } from '@/lib/format';
 import type { InvoiceLine, PackageListItem, Verification } from '@/lib/types';
 import { Modal } from '../Dialog';
@@ -61,11 +61,16 @@ export function LineDialog({ open, onClose, receiptId, line, onSaved }: {
 
   const chooseMaterial = (id: string) => {
     const m = materials.items.find((x) => String(x.id) === id);
-    setV((x) => ({
+    setV((x) => {
+      // Replace the description too unless someone typed their own (it still equals the previous material's name).
+      const previous = materials.items.find((p) => String(p.id) === x.material)?.name;
+      const typed = x.material_name_declared && x.material_name_declared !== previous;
+      return {
       ...x, material: id,
-      material_name_declared: x.material_name_declared || m?.name || '',
+      material_name_declared: typed ? x.material_name_declared : m?.name || '',
       declared_unit: x.declared_unit || (m?.default_unit ? String(m.default_unit) : ''),
-    }));
+      };
+    });
   };
 
   const submit = (e: FormEvent) => {
@@ -124,6 +129,17 @@ export function LineDialog({ open, onClose, receiptId, line, onSaved }: {
   );
 }
 
+type Conversion = { from_unit: number; to_unit: number; factor: string };
+
+/** Convert an invoice quantity into another unit with the configured conversions (either direction). */
+export function expectedIn(qty: number, from: number, to: number, conversions: Conversion[]): number | null {
+  if (!to || from === to) return qty;
+  const direct = conversions.find((c) => c.from_unit === from && c.to_unit === to);
+  if (direct) return qty * Number(direct.factor);
+  const inverse = conversions.find((c) => c.from_unit === to && c.to_unit === from);
+  return inverse ? qty / Number(inverse.factor) : null;
+}
+
 // ---------------------------------------------------------------------------
 // Physical verification (unloading)
 // ---------------------------------------------------------------------------
@@ -137,6 +153,7 @@ export function VerifyDialog({ open, onClose, line, onSaved }: {
     identified_material: '', observed_description: '', observed_grade: '', verification_notes: '', discrepancy_notes: '' };
   const [v, setV] = useState(blank);
   const [decision, setDecision] = useState<'accept' | 'reject'>('accept');
+  const conversions = useApi<Paginated<Conversion>>(open ? 'master/unit-conversions' : null, { page_size: 200 });
   const s = useSubmit();
   const policy = usePolicy().data;
   // Business rule (default): a line is accepted in full or rejected, never partly.
@@ -160,11 +177,15 @@ export function VerifyDialog({ open, onClose, line, onSaved }: {
   const received = Number(v.received_quantity);
   const declared = Number(line.declared_quantity);
   const sameUnit = v.received_unit === String(line.declared_unit);
-  const diff = v.received_quantity !== '' && sameUnit ? received - declared : null;
+  // The invoice quantity in the unit being received (e.g. 250 kg → 0.25 t); null when no conversion exists.
+  const expected = expectedIn(declared, line.declared_unit, Number(v.received_unit), conversions.data?.results ?? []);
+  const receivedSymbol = units.items.find((u) => String(u.id) === v.received_unit)?.symbol ?? line.declared_unit_symbol;
+  const diff = v.received_quantity !== '' && expected !== null ? Math.round((received - expected) * 1e4) / 1e4 : null;
+  const converted = !sameUnit && expected !== null ? ` (${fmtQty(declared, line.declared_unit_symbol)} = ${fmtQty(expected, receivedSymbol)})` : '';
   const damaged = whole && !rejecting ? 0 : Number(v.damaged_quantity || 0) + Number(v.mismatched_quantity || 0);
   const accepted = whole ? (rejecting ? 0 : received) : v.accepted_quantity !== '' ? Number(v.accepted_quantity) : Math.max(0, received - damaged);
   const unitCode = units.items.find((u) => String(u.id) === v.received_unit)?.code;
-  const discrepant = rejecting || (diff !== null && diff !== 0) || damaged > 0 || (!sameUnit && diff === null);
+  const discrepant = rejecting || (diff !== null && diff !== 0) || damaged > 0 || (v.received_quantity !== '' && expected === null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -217,7 +238,8 @@ export function VerifyDialog({ open, onClose, line, onSaved }: {
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField label="Received quantity" required autoFocus type="number" inputMode="decimal" step="any" min="0" value={v.received_quantity} onChange={set('received_quantity')} error={fe.received_quantity}
-            hint={diff !== null && v.received_quantity !== '' ? (diff === 0 ? 'Matches invoice.' : diff < 0 ? `Short by ${fmtQty(-diff, line.declared_unit_symbol)}` : `Excess of ${fmtQty(diff, line.declared_unit_symbol)}`) : undefined} />
+            hint={v.received_quantity === '' ? undefined : expected === null ? `No conversion from ${line.declared_unit_symbol} to ${receivedSymbol} — the line will be flagged.`
+              : diff === 0 ? `Matches invoice${converted}.` : diff! < 0 ? `Short by ${fmtQty(-diff!, receivedSymbol)}${converted}` : `Excess of ${fmtQty(diff!, receivedSymbol)}${converted}`} />
           <MasterSelect kind="unit" label="Unit" required value={v.received_unit} onChange={(val) => set('received_unit')({ target: { value: val } })} error={fe.received_unit} options={units.items.map((u) => ({ value: u.id, label: u.symbol }))} />
           {(!whole || rejecting) && <>
             <TextField label="Damaged quantity" type="number" inputMode="decimal" step="any" min="0" value={v.damaged_quantity} onChange={set('damaged_quantity')} error={fe.damaged_quantity} />

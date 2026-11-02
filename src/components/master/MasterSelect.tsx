@@ -7,13 +7,14 @@
  * deleting stay with administrators (Django admin).
  */
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type FormEvent, type SelectHTMLAttributes } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError, post } from '@/lib/api';
 import { useApi, useFactories, useLocations, useMe, usePolicy, useUnits, useWarehouses } from '@/lib/hooks';
 import type { Paginated } from '@/lib/api';
 import { Modal } from '../Dialog';
 import { ActionError, Alert, Button } from '../ui';
 import { Checkbox, SelectField, TextField, type Option } from '../forms';
+import { SearchableSelect, type SearchOption } from '../SearchableSelect';
 
 export type MasterKind = 'supplier' | 'material' | 'unit' | 'location' | 'factory' | 'department' | 'test_definition';
 
@@ -28,14 +29,16 @@ const NOUN: Record<MasterKind, string> = {
 
 export function useCanCreate(kind: MasterKind) {
   const me = useMe();
-  const roles = usePolicy().data?.['master.create_roles']?.[kind];
-  return !!me.data && (roles ?? ['ADMIN']).includes(me.data.role);
+  const policy = usePolicy().data;
+  const roles = [...(policy?.['master.manage_roles'] ?? ['ADMIN']), ...(policy?.['master.create_roles']?.[kind] ?? [])];
+  return !!me.data && roles.includes(me.data.role);
 }
 
-type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'onChange'> & {
+type SelectProps = {
   kind: MasterKind;
   label: string;
-  options: Option[];
+  options: SearchOption[];
+  disabled?: boolean;
   value: string;
   onChange: (value: string) => void;
   error?: string;
@@ -52,9 +55,10 @@ export function MasterSelect({ kind, onChange, defaults, hint, ...rest }: Select
   const [adding, setAdding] = useState(false);
   return (
     <>
-      <SelectField
+      <SearchableSelect
         {...rest}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
+        placeholder={rest.placeholder && rest.placeholder !== 'Select…' ? rest.placeholder : `Search ${NOUN[kind]}s…`}
         hint={hint ?? (!canCreate && rest.options.length === 0 ? `No ${NOUN[kind]}s yet — ask an administrator to add one.` : undefined)}
         labelAction={canCreate && (
           <button type="button" onClick={() => setAdding(true)} className="text-xs font-semibold text-brand-600 hover:text-brand-700">

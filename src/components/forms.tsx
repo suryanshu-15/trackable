@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { useId, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { cx } from './ui';
 
 export const inputCls =
@@ -99,4 +99,39 @@ export const validate = {
 /** Drop empty strings so optional fields are omitted instead of sent as "". */
 export function compact<T extends Record<string, unknown>>(obj: T): Partial<T> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== undefined && v !== null)) as Partial<T>;
+}
+
+/** Password input with an eye button to show / hide what was typed. */
+export function PasswordField({ label, error, hint, required, className, ...rest }: FieldProps & Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const id = useId();
+  const [visible, setVisible] = useState(false);
+  return (
+    <FieldShell id={id} label={label} error={error} hint={hint} required={required} className={className}>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? 'text' : 'password'}
+          required={required}
+          aria-invalid={!!error || undefined}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className={cx(inputCls, 'pr-11', error && 'ring-red-400')}
+          {...rest}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-pressed={visible}
+          title={visible ? 'Hide password' : 'Show password'}
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-slate-500 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+            <circle cx="12" cy="12" r="3" />
+            {visible && <path d="M3 3l18 18" />}
+          </svg>
+        </button>
+      </div>
+    </FieldShell>
+  );
 }

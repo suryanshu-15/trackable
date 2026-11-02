@@ -30,6 +30,7 @@ export const NAV: NavItem[] = [
   { href: '/issues', label: 'Issues', roles: ['ADMIN', 'WAREHOUSE', 'FACTORY', 'AUDITOR', 'MANAGER'], icon: 'send', section: 'Outbound' },
   { href: '/reports', label: 'Reports', roles: OPS.filter((r) => r !== 'ADMIN'), icon: 'report', section: 'Insights' },
   { href: '/audit', label: 'Audit trail', roles: OVERSIGHT, icon: 'audit', section: 'Insights' },
+  { href: '/admin/master', label: 'Master data', roles: ['ADMIN', 'MANAGER'], icon: 'stock', section: 'Administration' },
   { href: '/admin/users', label: 'Users', roles: ['ADMIN'], icon: 'users', section: 'Administration' },
 ];
 

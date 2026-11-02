@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui';
-import { TextField } from '@/components/forms';
+import { PasswordField, TextField } from '@/components/forms';
 import { LANDING } from '@/lib/roles';
 import type { User } from '@/lib/types';
 
@@ -23,7 +23,6 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [show, setShow] = useState(false);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -64,10 +63,7 @@ export function LoginForm() {
   return (
     <form onSubmit={submit} className="space-y-4" noValidate>
       <TextField label="Username" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} required placeholder="e.g. demo_gate" />
-      <div>
-        <TextField label="Password" type={show ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        <button type="button" onClick={() => setShow((v) => !v)} className="mt-1.5 text-xs font-medium text-brand-600 hover:text-brand-700">{show ? 'Hide password' : 'Show password'}</button>
-      </div>
+      <PasswordField label="Password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>}
       <Button type="submit" className="w-full" size="lg" loading={busy}>Sign in</Button>
     </form>

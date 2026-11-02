@@ -34,8 +34,8 @@ describe('Gate receipt form', () => {
       .mockRejectedValueOnce(new ApiError(409, { error: 'duplicate_invoice', message: 'dup', details: { duplicate_receipts: ['GR-1'] } }, null))
       .mockResolvedValueOnce(undefined);
     renderWithProviders(<ReceiptForm initial={{ ...initialReceipt(), invoice_number: 'INV-1', vehicle_number: 'OD01' }} submitLabel="Create receipt" onSubmit={onSubmit} />);
-    await screen.findByRole('option', { name: 'Alpha (S1)' });
-    await userEvent.selectOptions(screen.getByLabelText(/Supplier/), '1');
+    await userEvent.type(screen.getByRole('combobox', { name: /Supplier/ }), 'alph');
+    await userEvent.click(await screen.findByRole('option', { name: 'Alpha (S1)' }));
     await userEvent.click(screen.getByRole('button', { name: 'Create receipt' }));
     expect(await screen.findByText('Possible duplicate invoice')).toBeInTheDocument();
     expect(screen.getByText('GR-1')).toBeInTheDocument();
@@ -269,5 +269,111 @@ describe('Master data "+ New"', () => {
     await userEvent.type(screen.getByLabelText(/^Name/), 'New Supplier');
     await userEvent.click(screen.getByRole('button', { name: 'Add supplier' }));
     await waitFor(() => expect(screen.getByTestId('chosen')).toHaveTextContent('7'));
+  });
+});
+
+describe('Master data editor', () => {
+  it('edits a material including its lab tests and sends a PATCH', async () => {
+    const { MasterEditor } = await import('./master/MasterEditor');
+    const { kindBySlug } = await import('./master/config');
+    let sent: Record<string, unknown> | null = null;
+    mockFetch({
+      '/bff/master/units': { body: page([{ id: 2, code: 'T', name: 'Tonne', symbol: 't' }]) },
+      '/bff/master/test-definitions': { body: page([{ id: 1, code: 'MOIST', name: 'Moisture' }, { id: 5, code: 'PUR', name: 'Purity' }]) },
+      'PATCH /bff/master/materials/9': (init) => { sent = JSON.parse(String(init!.body)); return { body: { id: 9 } }; },
+      '/bff/master': { body: page([]) },
+    });
+    const row = { id: 9, code: 'MAT-9', name: 'Soda', default_unit: 2, qc_required: true, requires_expiry: true, requires_retest: true,
+      allow_partial_issue: false, test_requirements: [{ test_definition: 1 }] };
+    const onSaved = vi.fn();
+    renderWithProviders(<MasterEditor kind={kindBySlug('materials')!} record={row} onClose={vi.fn()} onSaved={onSaved} />);
+    expect(await screen.findByLabelText('MOIST — Moisture')).toBeChecked();
+    await userEvent.click(screen.getByLabelText('PUR — Purity'));
+    await userEvent.clear(screen.getByLabelText(/^Code/));
+    await userEvent.type(screen.getByLabelText(/^Code/), 'mat-9a');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(false));
+    expect(sent).toMatchObject({ code: 'MAT-9A', name: 'Soda', default_unit: 2, test_ids: [1, 5], qc_required: true, category: null });
+  });
+});
+
+
+describe('Searchable dropdown', () => {
+  it('filters by every word typed (label and keywords), picks with the keyboard, and Escape only closes the list', async () => {
+    const { SearchableSelect } = await import('./SearchableSelect');
+    const onChange = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <ConfirmDialog open onClose={onClose} title="Pick" onConfirm={async () => undefined}>
+        <SearchableSelect label="Supplier" value="" onChange={onChange} required options={[
+          { value: 1, label: 'Alpha Chemicals (SUP-1)', keywords: '21AAA gst' },
+          { value: 2, label: 'Beta Polymers (SUP-2)', keywords: '27BBB' },
+          { value: 3, label: 'Alpha Metals (SUP-3)' },
+        ]} />
+      </ConfirmDialog>,
+    );
+    const box = screen.getByRole('combobox', { name: /Supplier/ });
+    await userEvent.type(box, 'alpha met');
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Alpha Metals (SUP-3)']);
+    await userEvent.clear(box);
+    await userEvent.type(box, '27bbb');
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Beta Polymers (SUP-2)']);
+    await userEvent.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith('2');
+    await userEvent.type(box, 'zzz');
+    expect(screen.getByText(/No matches/)).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled(); // the dialog stays open
+  });
+});
+
+describe('Password field', () => {
+  it('shows and hides the typed password with the eye button', async () => {
+    const { PasswordField } = await import('./forms');
+    render(<PasswordField label="Password" defaultValue="" />);
+    const input = screen.getByLabelText('Password');
+    await userEvent.type(input, 'S3cret!');
+    expect(input).toHaveAttribute('type', 'password');
+    await userEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(input).toHaveAttribute('type', 'text');
+    expect(input).toHaveValue('S3cret!');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(input).toHaveAttribute('type', 'password');
+  });
+});
+
+describe('Unit-aware verification', () => {
+  it('treats 0.25 t received against a 250 kg invoice line as a match', async () => {
+    const { VerifyDialog, expectedIn } = await import('./receiving/LineDialogs');
+    const conv = [{ from_unit: 2, to_unit: 1, factor: '1000' }];
+    expect(expectedIn(250, 1, 2, conv)).toBe(0.25); // kg → t via the inverse of t → kg
+    expect(expectedIn(250, 1, 9, conv)).toBeNull();
+    mockFetch({
+      '/bff/policy': { body: { 'receiving.line_acceptance': 'WHOLE', 'package.unit_codes': ['T'] } },
+      '/bff/master/units': { body: page([{ id: 1, code: 'KG', symbol: 'kg' }, { id: 2, code: 'T', symbol: 't' }]) },
+      '/bff/master/unit-conversions': { body: page([{ from_unit: 2, to_unit: 1, factor: '1000.00000000' }]) },
+      '/bff/master': { body: page([]) },
+    });
+    const line = { id: 'l4', line_number: 4, declared_quantity: '250.0000', declared_unit: 1, declared_unit_symbol: 'kg', material_name: 'Billets' } as never;
+    renderWithProviders(<VerifyDialog open line={line} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect(screen.getByLabelText(/^Unit/)).toHaveDisplayValue('t'));
+    await userEvent.type(screen.getByLabelText(/Received quantity/), '0.25');
+    expect(await screen.findByText('Matches invoice (250 kg = 0.25 t).')).toBeInTheDocument();
+    expect(screen.queryByText(/will be flagged/)).not.toBeInTheDocument();
+    await userEvent.clear(screen.getByLabelText(/Received quantity/));
+    await userEvent.type(screen.getByLabelText(/Received quantity/), '0.248');
+    expect(await screen.findByText('Short by 0.002 t (250 kg = 0.25 t)')).toBeInTheDocument();
+  });
+
+  it('the mouse wheel leaves a number field instead of changing its value', async () => {
+    const { Providers } = await import('@/app/providers');
+    render(<Providers><input type="number" aria-label="Qty" defaultValue="250" /></Providers>);
+    const qty = screen.getByLabelText('Qty');
+    qty.focus();
+    qty.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 100 }));
+    expect(qty).not.toHaveFocus();
+    expect(qty).toHaveValue(250);
   });
 });

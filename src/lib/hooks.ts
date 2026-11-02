@@ -91,6 +91,7 @@ export type Policy = {
   'issue.override_roles': string[];
   'stock.near_expiry_days': number;
   'master.create_roles': Record<string, string[]>;
+  'master.manage_roles': string[];
 };
 
 /** Business rules that shape forms (the API enforces them regardless). */
