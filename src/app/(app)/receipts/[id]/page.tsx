@@ -236,7 +236,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
       </Modal>
 
       <Modal open={editing} onClose={() => setEditing(false)} title="Edit draft receipt" wide>
-        <ReceiptForm initial={initialReceipt(r)} submitLabel="Save changes" onSubmit={async (data, acknowledge) => {
+        <ReceiptForm initial={initialReceipt(r)} submitLabel="Save changes" onCancel={() => setEditing(false)} onSubmit={async (data, acknowledge) => {
           await api(`receiving/goods-receipts/${r.id}`, { method: 'PATCH', body: data, query: acknowledge ? { acknowledge_duplicate: 'true' } : undefined });
           setEditing(false);
           toast('Receipt updated.');

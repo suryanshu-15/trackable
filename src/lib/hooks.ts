@@ -90,6 +90,7 @@ export type Policy = {
   'issue.fifo_override_policy': 'ALLOW' | 'FORBID';
   'issue.override_roles': string[];
   'stock.near_expiry_days': number;
+  'master.create_roles': Record<string, string[]>;
 };
 
 /** Business rules that shape forms (the API enforces them regardless). */

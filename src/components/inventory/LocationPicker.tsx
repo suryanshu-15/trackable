@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react';
 import { useLocations } from '@/lib/hooks';
 import type { Location } from '@/lib/types';
-import { SelectField, TextField } from '../forms';
+import { TextField } from '../forms';
+import { MasterSelect } from '../master/MasterSelect';
 
 /** Only leaf locations (shelves, bins…) can hold stock; parents are containers. */
 export function storableLocations(all: Location[]): Location[] {
@@ -52,11 +53,13 @@ export function LocationPicker({ value, onChange, quarantineOnly, excludeId, err
         error={codeError}
         autoComplete="off"
       />
-      <SelectField
+      <MasterSelect
+        kind="location"
+        defaults={quarantineOnly ? { location_type: 'QUARANTINE', is_quarantine: true } : undefined}
         label="Location"
         required
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={onChange}
         error={error}
         placeholder={isLoading ? 'Loading…' : 'Choose a location'}
         options={options.map((l) => ({ value: l.id, label: locationLabel(l) }))}

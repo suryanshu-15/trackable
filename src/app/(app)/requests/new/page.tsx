@@ -6,8 +6,9 @@ import { ApiError, post } from '@/lib/api';
 import { useDepartments, useFactories, useMaterials, useUnits } from '@/lib/hooks';
 import type { MaterialRequest } from '@/lib/types';
 import { ActionError, Button, Card, PageHeader } from '@/components/ui';
-import { SelectField, TextArea, TextField, compact, validate } from '@/components/forms';
+import { TextArea, TextField, compact, validate } from '@/components/forms';
 import { useToast } from '@/components/Toast';
+import { MasterSelect } from '@/components/master/MasterSelect';
 
 type Line = { material: string; quantity: string; unit: string; notes: string };
 const blank: Line = { material: '', quantity: '', unit: '', notes: '' };
@@ -66,8 +67,8 @@ export default function NewRequestPage() {
       <Card>
         <form onSubmit={submit} className="space-y-5" noValidate>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <SelectField label="Factory" required value={head.factory} error={errors.factory} onChange={(e) => setHead({ ...head, factory: e.target.value, department: '' })} options={factories.items.map((f) => ({ value: f.id, label: f.name }))} />
-            <SelectField label="Department" value={head.department} onChange={(e) => setHead({ ...head, department: e.target.value })}
+            <MasterSelect kind="factory" label="Factory" required value={head.factory} error={errors.factory} onChange={(val) => setHead({ ...head, factory: val, department: '' })} options={factories.items.map((f) => ({ value: f.id, label: f.name }))} />
+            <MasterSelect kind="department" defaults={{ factory: head.factory }} label="Department" value={head.department} onChange={(val) => setHead({ ...head, department: val })}
               options={departments.items.filter((d) => !head.factory || String(d.factory) === head.factory).map((d) => ({ value: d.id, label: d.name }))} />
             <TextField label="Required by" type="datetime-local" value={head.required_by} onChange={(e) => setHead({ ...head, required_by: e.target.value })} />
             <TextField label="Production order" value={head.production_order} onChange={(e) => setHead({ ...head, production_order: e.target.value })} />
@@ -77,9 +78,9 @@ export default function NewRequestPage() {
             <legend className="text-sm font-semibold text-slate-800">Materials</legend>
             {lines.map((l, i) => (
               <div key={i} className="grid grid-cols-1 items-end gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-12">
-                <SelectField className="sm:col-span-5" label="Material" value={l.material} onChange={(e) => setLine(i, 'material', e.target.value)} options={materials.items.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))} />
+                <MasterSelect kind="material" className="sm:col-span-5" label="Material" value={l.material} onChange={(val) => setLine(i, 'material', val)} options={materials.items.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))} />
                 <TextField className="sm:col-span-2" label="Quantity" type="number" inputMode="decimal" step="any" min="0" value={l.quantity} onChange={(e) => setLine(i, 'quantity', e.target.value)} />
-                <SelectField className="sm:col-span-2" label="Unit" value={l.unit} onChange={(e) => setLine(i, 'unit', e.target.value)} options={units.items.map((u) => ({ value: u.id, label: u.symbol }))} />
+                <MasterSelect kind="unit" className="sm:col-span-2" label="Unit" value={l.unit} onChange={(val) => setLine(i, 'unit', val)} options={units.items.map((u) => ({ value: u.id, label: u.symbol }))} />
                 <TextField className="sm:col-span-2" label="Notes" value={l.notes} onChange={(e) => setLine(i, 'notes', e.target.value)} />
                 <Button variant="ghost" className="sm:col-span-1" disabled={lines.length === 1} onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))} aria-label={`Remove line ${i + 1}`}>✕</Button>
                 {errors[`line${i}`] && <p className="text-xs text-red-600 sm:col-span-12">{errors[`line${i}`]}</p>}

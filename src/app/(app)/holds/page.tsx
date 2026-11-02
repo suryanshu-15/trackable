@@ -11,6 +11,7 @@ import { SelectField, TextField } from '@/components/forms';
 import { Badge } from '@/components/StatusBadge';
 import { ConfirmDialog, Modal } from '@/components/Dialog';
 import { useToast } from '@/components/Toast';
+import { MasterSelect } from '@/components/master/MasterSelect';
 
 type Impact = {
   in_stock: { package_id: string; quantity: string; unit: string; location: string | null; status: string }[];
@@ -128,7 +129,7 @@ function CreateHold({ open, onClose, onDone }: { open: boolean; onClose: () => v
       </div>
       {scope === 'lot' ? (
         <div className="grid grid-cols-2 gap-3">
-          <SelectField label="Material" value={material} onChange={(e) => setMaterial(e.target.value)} options={materials.items.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))} />
+          <MasterSelect kind="material" label="Material" value={material} onChange={(val) => setMaterial(val)} options={materials.items.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))} />
           <TextField label="Lot / batch" hint="Leave empty for every lot of the material." value={batch} onChange={(e) => setBatch(e.target.value)} />
         </div>
       ) : (

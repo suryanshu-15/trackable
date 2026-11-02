@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ActionError, Button } from './ui';
 import { TextArea } from './forms';
+
+// Open dialogs, innermost last: only the top one reacts to Escape / Tab (e.g. "+ New" inside a dialog).
+const openStack: symbol[] = [];
 
 export function Modal({ open, onClose, title, children, wide }: {
   open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; wide?: boolean;
@@ -18,7 +22,10 @@ export function Modal({ open, onClose, title, children, wide }: {
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
+    const token = Symbol('modal');
+    openStack.push(token);
     const onKey = (e: KeyboardEvent) => {
+      if (openStack[openStack.length - 1] !== token) return;
       if (e.key === 'Escape') onCloseRef.current();
       if (e.key === 'Tab' && panel.current) {
         // Keep keyboard focus inside the dialog.
@@ -40,11 +47,17 @@ export function Modal({ open, onClose, title, children, wide }: {
         ?? p?.querySelector<HTMLElement>('button');
       target?.focus();
     }, 0);
-    return () => { document.removeEventListener('keydown', onKey); clearTimeout(t); previous?.focus(); };
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      clearTimeout(t);
+      openStack.splice(openStack.indexOf(token), 1);
+      previous?.focus();
+    };
   }, [open]);
 
-  if (!open) return null;
-  return (
+  if (!open || typeof document === 'undefined') return null;
+  // Rendered at <body> level so a dialog opened from inside another dialog's form is not a nested <form>.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={panel}
@@ -59,7 +72,8 @@ export function Modal({ open, onClose, title, children, wide }: {
         </div>
         <div className="px-5 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -87,6 +101,7 @@ export function ConfirmDialog({ open, onClose, title, description, confirmLabel 
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // React bubbles through portals; never submit an enclosing form
     if (reason === 'required' && !text.trim()) { setError(new Error(`${reasonLabel} is required.`)); return; }
     setBusy(true);
     setError(null);

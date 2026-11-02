@@ -7,6 +7,7 @@ import { useMaterials, usePolicy, useTestDefinitions } from '@/lib/hooks';
 import { fmtQty } from '@/lib/format';
 import type { Package, Sample } from '@/lib/types';
 import { Modal } from '../Dialog';
+import { QuickCreateDialog, useCanCreate } from '../master/MasterSelect';
 import { ActionError, Alert, Button } from '../ui';
 import { Checkbox, TextArea, TextField, compact } from '../forms';
 
@@ -20,6 +21,8 @@ export function SampleRequestDialog({ open, onClose, packageIds, onCreated }: {
   const perPackage = scope !== 'LOT' && scope !== 'PACKAGE';
   const pkgs = useQueries({ queries: (open ? packageIds : []).map((id) => ({ queryKey: [`inventory/packages/${id}`, {}], queryFn: () => api<Package>(`inventory/packages/${id}`) })) });
   const [chosenTests, setChosenTests] = useState<number[]>([]);
+  const [addingTest, setAddingTest] = useState(false);
+  const canAddTest = useCanCreate('test_definition');
   const [requiredBy, setRequiredBy] = useState('');
   const [lab, setLab] = useState('');
   const [spec, setSpec] = useState('');
@@ -74,7 +77,10 @@ export function SampleRequestDialog({ open, onClose, packageIds, onCreated }: {
           </div>
         )}
         <fieldset>
-          <legend className="text-sm font-medium text-slate-700">Tests</legend>
+          <div className="flex items-baseline justify-between">
+            <legend className="text-sm font-medium text-slate-700">Tests</legend>
+            {canAddTest && <button type="button" onClick={() => setAddingTest(true)} className="text-xs font-semibold text-brand-600 hover:text-brand-700">+ New test</button>}
+          </div>
           <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
             {tests.items.map((t) => (
               <Checkbox key={t.id} label={`${t.code} — ${t.name}`} checked={chosenTests.includes(t.id)}
@@ -94,6 +100,8 @@ export function SampleRequestDialog({ open, onClose, packageIds, onCreated }: {
           <Button type="submit" loading={busy} disabled={!packageIds.length}>{perPackage && packageIds.length > 1 ? `Request ${packageIds.length} samples` : 'Request sample'}</Button>
         </div>
       </form>
+      <QuickCreateDialog kind="test_definition" open={addingTest} onClose={() => setAddingTest(false)}
+        onCreated={(id) => setChosenTests((c) => [...c, id])} />
     </Modal>
   );
 }

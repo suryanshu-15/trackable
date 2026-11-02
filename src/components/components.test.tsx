@@ -39,9 +39,9 @@ describe('Gate receipt form', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Create receipt' }));
     expect(await screen.findByText('Possible duplicate invoice')).toBeInTheDocument();
     expect(screen.getByText('GR-1')).toBeInTheDocument();
-    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: 1, invoice_number: 'INV-1' }), false);
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: 1, invoice_number: 'INV-1' }), false, 'continue');
     await userEvent.click(screen.getByRole('button', { name: 'Create anyway' }));
-    await waitFor(() => expect(onSubmit).toHaveBeenLastCalledWith(expect.anything(), true));
+    await waitFor(() => expect(onSubmit).toHaveBeenLastCalledWith(expect.anything(), true, 'continue'));
   });
 
   it('maps API field errors back onto the inputs', async () => {
@@ -216,5 +216,58 @@ describe('Dialog focus', () => {
     await userEvent.type(input, 'warehouse_lead_01');
     expect(input).toHaveValue('warehouse_lead_01');
     expect(input).toHaveFocus();
+  });
+});
+
+describe('New receipt: save as draft / cancel', () => {
+  it('saves as draft with the draft intent, and asks before discarding typed data', async () => {
+    mockFetch({ '/bff/master/suppliers': { body: page([{ id: 1, code: 'S1', name: 'Alpha' }]) }, '/bff/master/units': { body: page([]) } });
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const onCancel = vi.fn();
+    renderWithProviders(<ReceiptForm initial={{ ...initialReceipt(), supplier: '1', invoice_number: 'I-1', vehicle_number: 'V1' }}
+      submitLabel="Save and add invoice lines" draftLabel="Save as draft" onSubmit={onSubmit} onCancel={onCancel} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save as draft' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ invoice_number: 'I-1' }), false, 'draft'));
+    await userEvent.type(screen.getByLabelText('Driver name'), 'Ramesh');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByText('Discard this receipt?')).toBeInTheDocument();
+    expect(onCancel).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Discard and leave' }));
+    expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+describe('Master data "+ New"', () => {
+  it('shows "+ New" only for permitted roles and selects the record it creates', async () => {
+    const { MasterSelect } = await import('./master/MasterSelect');
+    const { useState } = await import('react');
+    let created = false;
+    mockFetch({
+      '/bff/auth/me': { body: { id: 1, role: 'GATE', display_name: 'Gate' } },
+      '/bff/policy': { body: { 'master.create_roles': { supplier: ['ADMIN', 'GATE'], unit: ['ADMIN'] } } },
+      'GET /bff/master/suppliers': () => ({ body: page(created ? [{ id: 7, code: 'SUP-NEW', name: 'New Supplier' }] : []) }),
+      'POST /bff/master/suppliers': (init) => { created = true; expect(JSON.parse(String(init!.body))).toMatchObject({ code: 'SUP-NEW', name: 'New Supplier' }); return { status: 201, body: { id: 7 } }; },
+      '/bff/master': { body: page([]) },
+    });
+    function Form() {
+      const [s, setS] = useState('');
+      const [u, setU] = useState('');
+      return (
+        <>
+          <MasterSelect kind="supplier" label="Supplier" value={s} onChange={setS} options={s ? [{ value: 7, label: 'New Supplier' }] : []} />
+          <MasterSelect kind="unit" label="Unit" value={u} onChange={setU} options={[]} />
+          <output data-testid="chosen">{s}</output>
+        </>
+      );
+    }
+    renderWithProviders(<Form />);
+    const add = await screen.findByRole('button', { name: '+ New' }); // only one: suppliers yes, units no
+    expect(screen.getAllByRole('button', { name: '+ New' })).toHaveLength(1);
+    expect(screen.getByText(/No units yet — ask an administrator/)).toBeInTheDocument();
+    await userEvent.click(add);
+    await userEvent.type(screen.getByLabelText(/^Code/), 'sup-new');
+    await userEvent.type(screen.getByLabelText(/^Name/), 'New Supplier');
+    await userEvent.click(screen.getByRole('button', { name: 'Add supplier' }));
+    await waitFor(() => expect(screen.getByTestId('chosen')).toHaveTextContent('7'));
   });
 });

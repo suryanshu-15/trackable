@@ -1238,8 +1238,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_departments_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_departments_create"];
         delete?: never;
         options?: never;
@@ -1254,12 +1256,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_departments_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_departments_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_departments_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_departments_partial_update"];
         trace?: never;
     };
@@ -1270,8 +1276,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_factories_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_factories_create"];
         delete?: never;
         options?: never;
@@ -1286,12 +1294,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_factories_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_factories_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_factories_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_factories_partial_update"];
         trace?: never;
     };
@@ -1302,8 +1314,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_locations_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_locations_create"];
         delete?: never;
         options?: never;
@@ -1318,12 +1332,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_locations_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_locations_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_locations_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_locations_partial_update"];
         trace?: never;
     };
@@ -1334,8 +1352,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_material_categories_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_material_categories_create"];
         delete?: never;
         options?: never;
@@ -1350,12 +1370,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_material_categories_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_material_categories_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_material_categories_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_material_categories_partial_update"];
         trace?: never;
     };
@@ -1366,8 +1390,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_materials_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_materials_create"];
         delete?: never;
         options?: never;
@@ -1382,12 +1408,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_materials_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_materials_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_materials_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_materials_partial_update"];
         trace?: never;
     };
@@ -1398,8 +1428,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_suppliers_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_suppliers_create"];
         delete?: never;
         options?: never;
@@ -1414,12 +1446,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_suppliers_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_suppliers_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_suppliers_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_suppliers_partial_update"];
         trace?: never;
     };
@@ -1430,8 +1466,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_test_definitions_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_test_definitions_create"];
         delete?: never;
         options?: never;
@@ -1446,12 +1484,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_test_definitions_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_test_definitions_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_test_definitions_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_test_definitions_partial_update"];
         trace?: never;
     };
@@ -1494,8 +1536,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_units_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_units_create"];
         delete?: never;
         options?: never;
@@ -1510,12 +1554,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_units_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_units_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_units_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_units_partial_update"];
         trace?: never;
     };
@@ -1526,8 +1574,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_warehouses_list"];
         put?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         post: operations["master_warehouses_create"];
         delete?: never;
         options?: never;
@@ -1542,12 +1592,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         get: operations["master_warehouses_retrieve"];
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         put: operations["master_warehouses_update"];
         post?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         delete: operations["master_warehouses_destroy"];
         options?: never;
         head?: never;
+        /** @description Anyone signed in reads; permitted roles add; only administrators edit or delete. Additions are audited. */
         patch: operations["master_warehouses_partial_update"];
         trace?: never;
     };

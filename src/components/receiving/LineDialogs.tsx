@@ -7,7 +7,8 @@ import { fmtQty } from '@/lib/format';
 import type { InvoiceLine, PackageListItem, Verification } from '@/lib/types';
 import { Modal } from '../Dialog';
 import { ActionError, Alert, Button, Tabs } from '../ui';
-import { SelectField, TextArea, TextField, compact, validate } from '../forms';
+import { TextArea, TextField, compact, validate } from '../forms';
+import { MasterSelect } from '@/components/master/MasterSelect';
 
 type Errors = Record<string, string>;
 
@@ -97,15 +98,15 @@ export function LineDialog({ open, onClose, receiptId, line, onSaved }: {
     <Modal open={open} onClose={onClose} title={line ? `Edit line ${line.line_number}` : 'Add invoice line'} wide>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <SelectField label="Material (master)" value={v.material} onChange={(e) => chooseMaterial(e.target.value)} error={fe.material}
+          <MasterSelect kind="material" label="Material (master)" value={v.material} onChange={(val) => chooseMaterial(val)} error={fe.material}
             placeholder="Not in master / unidentified" options={materials.items.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))} />
           <TextField label="Description on invoice" value={v.material_name_declared} onChange={set('material_name_declared')} error={fe.material_name_declared} />
           <TextField label="Supplier material code" value={v.material_code_declared} onChange={set('material_code_declared')} />
           <TextField label="Grade / specification" value={v.grade_or_specification} onChange={set('grade_or_specification')} />
           <TextField label="Declared quantity" required type="number" inputMode="decimal" step="any" min="0" value={v.declared_quantity} onChange={set('declared_quantity')} error={fe.declared_quantity} />
-          <SelectField label="Unit" required value={v.declared_unit} onChange={set('declared_unit')} error={fe.declared_unit} options={units.items.map((u) => ({ value: u.id, label: `${u.name} (${u.symbol})` }))} />
+          <MasterSelect kind="unit" label="Unit" required value={v.declared_unit} onChange={(val) => set('declared_unit')({ target: { value: val } })} error={fe.declared_unit} options={units.items.map((u) => ({ value: u.id, label: `${u.name} (${u.symbol})` }))} />
           <TextField label="Declared weight" type="number" inputMode="decimal" step="any" min="0" value={v.declared_weight} onChange={set('declared_weight')} error={fe.declared_weight} />
-          <SelectField label="Weight unit" value={v.declared_weight_unit} onChange={set('declared_weight_unit')} error={fe.declared_weight_unit} options={units.items.filter((u) => u.unit_type === 'WEIGHT').map((u) => ({ value: u.id, label: u.symbol }))} />
+          <MasterSelect kind="unit" label="Weight unit" value={v.declared_weight_unit} onChange={(val) => set('declared_weight_unit')({ target: { value: val } })} error={fe.declared_weight_unit} options={units.items.filter((u) => u.unit_type === 'WEIGHT').map((u) => ({ value: u.id, label: u.symbol }))} />
           <TextField label="Batch / lot" value={v.batch_number} onChange={set('batch_number')} error={fe.batch_number} />
           <TextField label="Manufactured" type="date" value={v.manufacturing_date} onChange={set('manufacturing_date')} error={fe.manufacturing_date} />
           <TextField label="Expiry" type="date" value={v.expiry_date} onChange={set('expiry_date')} error={fe.expiry_date} />
@@ -217,7 +218,7 @@ export function VerifyDialog({ open, onClose, line, onSaved }: {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField label="Received quantity" required autoFocus type="number" inputMode="decimal" step="any" min="0" value={v.received_quantity} onChange={set('received_quantity')} error={fe.received_quantity}
             hint={diff !== null && v.received_quantity !== '' ? (diff === 0 ? 'Matches invoice.' : diff < 0 ? `Short by ${fmtQty(-diff, line.declared_unit_symbol)}` : `Excess of ${fmtQty(diff, line.declared_unit_symbol)}`) : undefined} />
-          <SelectField label="Unit" required value={v.received_unit} onChange={set('received_unit')} error={fe.received_unit} options={units.items.map((u) => ({ value: u.id, label: u.symbol }))} />
+          <MasterSelect kind="unit" label="Unit" required value={v.received_unit} onChange={(val) => set('received_unit')({ target: { value: val } })} error={fe.received_unit} options={units.items.map((u) => ({ value: u.id, label: u.symbol }))} />
           {(!whole || rejecting) && <>
             <TextField label="Damaged quantity" type="number" inputMode="decimal" step="any" min="0" value={v.damaged_quantity} onChange={set('damaged_quantity')} error={fe.damaged_quantity} />
             <TextField label="Wrong / mismatched quantity" type="number" inputMode="decimal" step="any" min="0" value={v.mismatched_quantity} onChange={set('mismatched_quantity')} error={fe.mismatched_quantity} />
@@ -226,7 +227,7 @@ export function VerifyDialog({ open, onClose, line, onSaved }: {
             <TextField label="Accepted quantity" type="number" inputMode="decimal" step="any" min="0" value={v.accepted_quantity} onChange={set('accepted_quantity')} error={fe.accepted_quantity}
               placeholder={v.received_quantity !== '' ? String(accepted) : ''} hint="Defaults to received minus damaged and mismatched." />
           )}
-          <SelectField label="Material actually identified" value={v.identified_material} onChange={set('identified_material')} placeholder="Same as invoice"
+          <MasterSelect kind="material" label="Material actually identified" value={v.identified_material} onChange={(val) => set('identified_material')({ target: { value: val } })} placeholder="Same as invoice"
             options={materials.items.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))} />
           <TextField label="Observed description" value={v.observed_description} onChange={set('observed_description')} />
           <TextField label="Observed grade" value={v.observed_grade} onChange={set('observed_grade')} />

@@ -7,6 +7,7 @@ import { nowLocalInput, todayInput } from '@/lib/format';
 import type { Receipt } from '@/lib/types';
 import { ActionError, Alert, Button } from '../ui';
 import { SelectField, TextArea, TextField, compact } from '../forms';
+import { MasterSelect } from '@/components/master/MasterSelect';
 
 export type ReceiptInput = {
   supplier: string; invoice_number: string; invoice_date: string; vehicle_number: string; driver_name: string;
@@ -57,10 +58,16 @@ export function validateReceipt(v: ReceiptInput): Record<string, string> {
   return e;
 }
 
-export function ReceiptForm({ initial, submitLabel, onSubmit }: {
+export type SaveIntent = 'continue' | 'draft';
+
+export function ReceiptForm({ initial, submitLabel, draftLabel, onSubmit, onCancel }: {
   initial: ReceiptInput;
   submitLabel: string;
-  onSubmit: (data: Record<string, unknown>, acknowledgeDuplicate: boolean) => Promise<void>;
+  /** Optional second save button, e.g. "Save as draft" (finish the receipt later). */
+  draftLabel?: string;
+  onSubmit: (data: Record<string, unknown>, acknowledgeDuplicate: boolean, intent: SaveIntent) => Promise<void>;
+  /** Leave without saving. */
+  onCancel?: () => void;
 }) {
   const suppliers = useSuppliers();
   const units = useUnits();
@@ -69,6 +76,9 @@ export function ReceiptForm({ initial, submitLabel, onSubmit }: {
   const [error, setError] = useState<unknown>(null);
   const [duplicates, setDuplicates] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
+  const [intent, setIntent] = useState<SaveIntent>('continue');
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const dirty = JSON.stringify(v) !== JSON.stringify(initial);
   // Truck weights are entered in kg.
   const kg = units.items.find((u) => u.code === 'KG');
   useEffect(() => {
@@ -82,7 +92,8 @@ export function ReceiptForm({ initial, submitLabel, onSubmit }: {
 
   const net = v.gross_weight !== '' && v.tare_weight !== '' ? Number(v.gross_weight) - Number(v.tare_weight) : null;
 
-  const submit = async (e: FormEvent, acknowledge = false) => {
+  const submit = async (e: FormEvent, acknowledge = false, chosen: SaveIntent = intent) => {
+    setIntent(chosen);
     e.preventDefault();
     const local = validateReceipt(v);
     setErrors(local);
@@ -90,7 +101,7 @@ export function ReceiptForm({ initial, submitLabel, onSubmit }: {
     setBusy(true);
     setError(null);
     try {
-      await onSubmit({ ...compact(v), supplier: Number(v.supplier), weight_unit: v.weight_unit ? Number(v.weight_unit) : undefined }, acknowledge);
+      await onSubmit({ ...compact(v), supplier: Number(v.supplier), weight_unit: v.weight_unit ? Number(v.weight_unit) : undefined }, acknowledge, chosen);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'duplicate_invoice') {
         setDuplicates((err.details.duplicate_receipts as string[]) ?? []);
@@ -109,7 +120,7 @@ export function ReceiptForm({ initial, submitLabel, onSubmit }: {
     <form onSubmit={submit} className="space-y-6" noValidate>
       <fieldset className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <legend className="mb-2 text-sm font-semibold text-slate-800">Supplier & invoice</legend>
-        <SelectField label="Supplier" required value={v.supplier} onChange={set('supplier')} error={errors.supplier}
+        <MasterSelect kind="supplier" label="Supplier" required value={v.supplier} onChange={(val) => set('supplier')({ target: { value: val } })} error={errors.supplier}
           options={suppliers.items.map((s) => ({ value: s.id, label: `${s.name} (${s.code})` }))} />
         <TextField label="Invoice number" required value={v.invoice_number} onChange={set('invoice_number')} error={errors.invoice_number} />
         <TextField label="Invoice date" type="date" required value={v.invoice_date} onChange={set('invoice_date')} error={errors.invoice_date} />
@@ -129,7 +140,7 @@ export function ReceiptForm({ initial, submitLabel, onSubmit }: {
         <TextField label="Gross weight" type="number" inputMode="decimal" min="0" step="any" value={v.gross_weight} onChange={set('gross_weight')} error={errors.gross_weight} />
         <TextField label="Tare weight" type="number" inputMode="decimal" min="0" step="any" value={v.tare_weight} onChange={set('tare_weight')} error={errors.tare_weight}
           hint={net !== null && net >= 0 ? `Net: ${net}` : undefined} />
-        <SelectField label="Weight unit" value={v.weight_unit} onChange={set('weight_unit')} error={errors.weight_unit}
+        <MasterSelect kind="unit" label="Weight unit" value={v.weight_unit} onChange={(val) => set('weight_unit')({ target: { value: val } })} error={errors.weight_unit}
           options={weightUnits.map((u) => ({ value: u.id, label: `${u.name} (${u.symbol})` }))} />
         <SelectField label="Weighing method" value={v.weighing_method} onChange={set('weighing_method')} options={METHODS} />
         <TextField label="Weighbridge slip / reference" value={v.weighbridge_reference} onChange={set('weighbridge_reference')} />
@@ -148,7 +159,28 @@ export function ReceiptForm({ initial, submitLabel, onSubmit }: {
         </Alert>
       )}
       <ActionError error={error} />
-      {!duplicates && <Button type="submit" size="lg" loading={busy}>{submitLabel}</Button>}
+      {!duplicates && (
+        <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
+          <Button type="submit" size="lg" loading={busy && intent === 'continue'} disabled={busy} onClick={() => setIntent('continue')}>{submitLabel}</Button>
+          {draftLabel && (
+            <Button variant="secondary" size="lg" loading={busy && intent === 'draft'} disabled={busy}
+              onClick={(e) => submit(e as unknown as FormEvent, false, 'draft')}>{draftLabel}</Button>
+          )}
+          {onCancel && (
+            <Button variant="ghost" size="lg" disabled={busy} className="sm:ml-auto"
+              onClick={() => (dirty ? setConfirmLeave(true) : onCancel())}>Cancel</Button>
+          )}
+        </div>
+      )}
+      {confirmLeave && onCancel && (
+        <Alert tone="warn" title="Discard this receipt?">
+          <p>Nothing has been saved yet. Leaving now discards what you typed. To keep it for later, use {draftLabel ? <strong>{draftLabel}</strong> : 'save'} instead.</p>
+          <div className="mt-3 flex gap-2">
+            <Button variant="danger" size="sm" onClick={onCancel}>Discard and leave</Button>
+            <Button variant="secondary" size="sm" onClick={() => setConfirmLeave(false)}>Keep editing</Button>
+          </div>
+        </Alert>
+      )}
     </form>
   );
 }
