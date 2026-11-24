@@ -58,13 +58,13 @@ export function Modal({ open, onClose, title, children, wide }: {
   if (!open || typeof document === 'undefined') return null;
   // Rendered at <body> level so a dialog opened from inside another dialog's form is not a nested <form>.
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-3 sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`max-h-[92vh] w-full overflow-y-auto rounded-t-xl bg-white shadow-xl sm:rounded-xl ${wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'}`}
+        className={`max-h-[92dvh] w-full overflow-y-auto rounded-xl bg-white shadow-xl ${wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'}`}
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
           <h2 id={titleId} className="text-base font-semibold text-slate-900">{title}</h2>

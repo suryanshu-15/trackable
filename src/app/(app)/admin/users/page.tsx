@@ -13,7 +13,7 @@ import { useToast } from '@/components/Toast';
 
 const ROLES: { value: Role; label: string }[] = [
   { value: 'ADMIN', label: 'Administrator' }, { value: 'GATE', label: 'Gate operator' }, { value: 'RECEIVING', label: 'Receiving / unloading' },
-  { value: 'WAREHOUSE', label: 'Warehouse operator' }, { value: 'LAB_TECH', label: 'Lab technician' }, { value: 'LAB_REVIEWER', label: 'Lab reviewer / QA' },
+  { value: 'WAREHOUSE', label: 'Warehouse operator' }, { value: 'LAB', label: 'Laboratory' },
   { value: 'FACTORY', label: 'Factory / requester' }, { value: 'AUDITOR', label: 'Auditor (read-only)' }, { value: 'MANAGER', label: 'Manager' },
 ];
 

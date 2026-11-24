@@ -2,7 +2,7 @@ import { screen, waitFor, render } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api';
-import { ReceiptForm, initialReceipt } from './receiving/ReceiptForm';
+import { GateEntryForm, initialGateEntry } from './receiving/GateEntryForm';
 import { ScanBox } from './Scanner';
 import { ConfirmDialog } from './Dialog';
 import { ErrorState } from './ui';
@@ -14,43 +14,76 @@ afterEach(() => vi.unstubAllGlobals());
 
 const masters = {
   '/bff/master/suppliers': { body: page([{ id: 1, code: 'S1', name: 'Alpha' }]) },
-  '/bff/master/units': { body: page([{ id: 1, code: 'KG', name: 'Kilogram', symbol: 'kg', unit_type: 'WEIGHT' }]) },
+  '/bff/master/units': { body: page([{ id: 1, code: 'KG', name: 'Kilogram', symbol: 'kg', unit_type: 'WEIGHT' }, { id: 2, code: 'T', name: 'Tonne', symbol: 't', unit_type: 'WEIGHT' }]) },
+  '/bff/master/materials': { body: page([{ id: 5, code: 'MAT-001', name: 'Soda ash' }]) },
+  '/bff/master/locations': { body: page([{ id: 9, code: 'A-R1-S1', full_path: 'A > A-R1-S1', warehouse_name: 'Main', parent: null, is_quarantine: false }]) },
 };
 
-describe('Gate receipt form', () => {
-  it('shows client-side validation without calling the API', async () => {
+const filled = () => ({
+  ...initialGateEntry(), supplier: '1', invoice_number: 'INV-1', vehicle_number: 'OD02AB1234',
+  lines: [{ key: 'a', material: '5', description: 'Soda ash', quantity: '1', unit: '2', location: '9' }],
+});
+
+describe('Gate entry form', () => {
+  it('shows what is missing without calling the API', async () => {
     mockFetch(masters);
-    const onSubmit = vi.fn();
-    renderWithProviders(<ReceiptForm initial={initialReceipt()} submitLabel="Create receipt" onSubmit={onSubmit} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Create receipt' }));
+    const onSave = vi.fn();
+    renderWithProviders(<GateEntryForm initial={initialGateEntry()} onSave={onSave} onCancel={() => undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save and send to receiving' }));
     expect(screen.getByText('Choose the supplier.')).toBeInTheDocument();
     expect(screen.getByText('Invoice number is required.')).toBeInTheDocument();
-    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText('Choose the material.')).toBeInTheDocument();
+    expect(screen.getByText('Enter the quantity.')).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('warns on a duplicate invoice and re-submits only when acknowledged', async () => {
+  it('sends the gate register columns and every material row, defaulting new rows to tonnes', async () => {
     mockFetch(masters);
-    const onSubmit = vi.fn()
-      .mockRejectedValueOnce(new ApiError(409, { error: 'duplicate_invoice', message: 'dup', details: { duplicate_receipts: ['GR-1'] } }, null))
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    renderWithProviders(<GateEntryForm initial={{ ...filled(), transporter_name: 'Kalinga Roadlines', lr_number: 'LR-1', eway_bill_number: '3210', driver_mobile: '9876543210' }}
+      onSave={onSave} onCancel={() => undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: '+ Add another material' }));
+    await userEvent.type(screen.getAllByRole('combobox', { name: /Material/ })[1], 'soda');
+    await userEvent.click(await screen.findByRole('option', { name: 'Soda ash (MAT-001)' }));
+    await userEvent.type(screen.getAllByLabelText(/Quantity/)[1], '0.5');
+    await userEvent.click(screen.getByRole('button', { name: 'Save and send to receiving' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalled());
+    const [body, ack, send] = onSave.mock.calls[0];
+    expect([ack, send]).toEqual([false, true]);
+    expect(body).toMatchObject({ supplier: 1, invoice_number: 'INV-1', vehicle_number: 'OD02AB1234', transporter_name: 'Kalinga Roadlines',
+      lr_number: 'LR-1', eway_bill_number: '3210', driver_mobile: '9876543210', send: true });
+    expect(body.lines).toEqual([
+      { material: 5, material_name_declared: 'Soda ash', declared_quantity: '1', declared_unit: 2, storage_location: 9 },
+      { material: 5, material_name_declared: 'Soda ash', declared_quantity: '0.5', declared_unit: 2, storage_location: null },
+    ]);
+  });
+
+  it('warns on a duplicate invoice and saves again only when confirmed', async () => {
+    mockFetch(masters);
+    const onSave = vi.fn()
+      .mockRejectedValueOnce(new ApiError(409, { error: 'duplicate_invoice', message: 'dup', details: { duplicate_receipts: ['GE-2026-00001'] } }, null))
       .mockResolvedValueOnce(undefined);
-    renderWithProviders(<ReceiptForm initial={{ ...initialReceipt(), invoice_number: 'INV-1', vehicle_number: 'OD01' }} submitLabel="Create receipt" onSubmit={onSubmit} />);
-    await userEvent.type(screen.getByRole('combobox', { name: /Supplier/ }), 'alph');
-    await userEvent.click(await screen.findByRole('option', { name: 'Alpha (S1)' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Create receipt' }));
-    expect(await screen.findByText('Possible duplicate invoice')).toBeInTheDocument();
-    expect(screen.getByText('GR-1')).toBeInTheDocument();
-    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: 1, invoice_number: 'INV-1' }), false, 'continue');
-    await userEvent.click(screen.getByRole('button', { name: 'Create anyway' }));
-    await waitFor(() => expect(onSubmit).toHaveBeenLastCalledWith(expect.anything(), true, 'continue'));
+    renderWithProviders(<GateEntryForm initial={filled()} onSave={onSave} onCancel={() => undefined} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save and send to receiving' }));
+    expect(await screen.findByText('This invoice is already entered')).toBeInTheDocument();
+    expect(screen.getByText('GE-2026-00001')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save anyway' }));
+    await waitFor(() => expect(onSave).toHaveBeenLastCalledWith(expect.anything(), true, true));
   });
 
-  it('maps API field errors back onto the inputs', async () => {
+  it('saves a draft, and asks before leaving with unsaved changes', async () => {
     mockFetch(masters);
-    const onSubmit = vi.fn().mockRejectedValue(new ApiError(400, { error: 'bad_request', message: 'Gross weight cannot be negative.', details: { gross_weight: ['Must be ≥ 0.'] } }, 'abc123'));
-    renderWithProviders(<ReceiptForm initial={{ ...initialReceipt(), supplier: '1', invoice_number: 'I', vehicle_number: 'V' }} submitLabel="Save" onSubmit={onSubmit} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('Must be ≥ 0.')).toBeInTheDocument();
-    expect(screen.getByText('Reference: abc123')).toBeInTheDocument();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onCancel = vi.fn();
+    renderWithProviders(<GateEntryForm initial={filled()} onSave={onSave} onCancel={onCancel} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save as draft' }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ send: false }), false, false));
+    await userEvent.type(screen.getByLabelText('Driver name'), 'Ramesh');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByText('Leave without saving?')).toBeInTheDocument();
+    expect(onCancel).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Leave without saving' }));
+    expect(onCancel).toHaveBeenCalled();
   });
 });
 
@@ -219,24 +252,6 @@ describe('Dialog focus', () => {
   });
 });
 
-describe('New receipt: save as draft / cancel', () => {
-  it('saves as draft with the draft intent, and asks before discarding typed data', async () => {
-    mockFetch({ '/bff/master/suppliers': { body: page([{ id: 1, code: 'S1', name: 'Alpha' }]) }, '/bff/master/units': { body: page([]) } });
-    const onSubmit = vi.fn().mockResolvedValue(undefined);
-    const onCancel = vi.fn();
-    renderWithProviders(<ReceiptForm initial={{ ...initialReceipt(), supplier: '1', invoice_number: 'I-1', vehicle_number: 'V1' }}
-      submitLabel="Save and add invoice lines" draftLabel="Save as draft" onSubmit={onSubmit} onCancel={onCancel} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Save as draft' }));
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ invoice_number: 'I-1' }), false, 'draft'));
-    await userEvent.type(screen.getByLabelText('Driver name'), 'Ramesh');
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(screen.getByText('Discard this receipt?')).toBeInTheDocument();
-    expect(onCancel).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'Discard and leave' }));
-    expect(onCancel).toHaveBeenCalled();
-  });
-});
-
 describe('Master data "+ New"', () => {
   it('shows "+ New" only for permitted roles and selects the record it creates', async () => {
     const { MasterSelect } = await import('./master/MasterSelect');
@@ -375,5 +390,101 @@ describe('Unit-aware verification', () => {
     qty.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 100 }));
     expect(qty).not.toHaveFocus();
     expect(qty).toHaveValue(250);
+  });
+});
+
+describe('Weighing the loaded truck', () => {
+  it('refuses a loaded weight that is not more than the invoice weight, before calling the API', async () => {
+    const { calls } = mockFetch({ '/bff/master/units': { body: page([{ id: 1, code: 'KG', name: 'Kilogram', symbol: 'kg', unit_type: 'WEIGHT' }, { id: 2, code: 'T', name: 'Tonne', symbol: 't', unit_type: 'WEIGHT' }]) } });
+    const { WeighDialog } = await import('./receiving/WeighDialog');
+    renderWithProviders(<WeighDialog stage="LOADED" receipt={{ id: 'r1', gross_weight: null, weight_unit: null, weight_unit_symbol: '', invoice_weight_kg: '185000' }}
+      onClose={() => undefined} onDone={() => undefined} />);
+    expect(await screen.findByText(/Material on the invoice: 1,85,000 kg/)).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Unit'), '2');
+    await userEvent.type(screen.getByLabelText(/Weight/), '20');
+    expect(screen.getByText('Must be more than the invoice weight (185 t).')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save and start unloading' }));
+    expect(calls.some((c) => c.url.includes('/weigh'))).toBe(false);
+  });
+});
+
+describe('Weighing the empty truck', () => {
+  it('asks for a strong confirmation when the net weight does not match the invoice, and saves only after it', async () => {
+    const { calls } = mockFetch({
+      '/bff/master/units': { body: page([{ id: 1, code: 'KG', name: 'Kilogram', symbol: 'kg', unit_type: 'WEIGHT' }, { id: 2, code: 'T', name: 'Tonne', symbol: 't', unit_type: 'WEIGHT' }]) },
+      '/bff/policy': { body: { 'receipt.weight_tolerance_percent': '0.5' } },
+      'POST /bff/receiving/goods-receipts/r1/weigh': { body: {} },
+    });
+    const { WeighDialog } = await import('./receiving/WeighDialog');
+    const onDone = vi.fn();
+    renderWithProviders(<WeighDialog stage="EMPTY" receipt={{ id: 'r1', gross_weight: '9502', weight_unit: 1, weight_unit_symbol: 'kg', invoice_weight_kg: '1500' }}
+      onClose={() => undefined} onDone={onDone} />);
+    await userEvent.type(await screen.findByLabelText(/Weight/), '8250');
+    expect(await screen.findByText(/does not match \(16\.53%, allowed 0\.5%\)/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save empty weight' }));
+    expect(await screen.findByText('⚠ Weight does not match the invoice')).toBeInTheDocument();
+    expect(screen.getByText(/Short by 248 kg/)).toBeInTheDocument();
+    expect(calls.some((c) => c.url.includes('/weigh'))).toBe(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Check the reading again' }));
+    expect(screen.queryByText('⚠ Weight does not match the invoice')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Save empty weight' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Yes, the reading is correct — save' }));
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/weigh'))).toBe(true));
+    expect(onDone).toHaveBeenCalledWith(expect.stringContaining('manager'));
+  });
+
+  it('saves straight away when the weight matches', async () => {
+    const { calls } = mockFetch({
+      '/bff/master/units': { body: page([{ id: 1, code: 'KG', name: 'Kilogram', symbol: 'kg', unit_type: 'WEIGHT' }]) },
+      '/bff/policy': { body: { 'receipt.weight_tolerance_percent': '0.5' } },
+      'POST /bff/receiving/goods-receipts/r1/weigh': { body: {} },
+    });
+    const { WeighDialog } = await import('./receiving/WeighDialog');
+    renderWithProviders(<WeighDialog stage="EMPTY" receipt={{ id: 'r1', gross_weight: '9502', weight_unit: 1, weight_unit_symbol: 'kg', invoice_weight_kg: '1500' }}
+      onClose={() => undefined} onDone={() => undefined} />);
+    await userEvent.type(await screen.findByLabelText(/Weight/), '8000');
+    await userEvent.click(screen.getByRole('button', { name: 'Save empty weight' }));
+    await waitFor(() => expect(calls.some((c) => c.url.includes('/weigh'))).toBe(true));
+    expect(screen.queryByText('⚠ Weight does not match the invoice')).not.toBeInTheDocument();
+  });
+});
+
+describe('Factory request for a mixture', () => {
+  it('turns shares into quantities, insists on 100 %, and shows lab-passed stock', async () => {
+    vi.doMock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }), usePathname: () => '/requests/new', useSearchParams: () => new URLSearchParams() }));
+    const posted: unknown[] = [];
+    mockFetch({
+      '/bff/master/factories': { body: page([{ id: 1, code: 'F1', name: 'Unit 1' }]) },
+      '/bff/master/departments': { body: page([]) },
+      '/bff/master/materials': { body: page([{ id: 5, code: 'FE', name: 'Iron', default_unit: 2 }, { id: 6, code: 'AL', name: 'Aluminium', default_unit: 2 }]) },
+      '/bff/master/units': { body: page([{ id: 2, code: 'T', name: 'Tonne', symbol: 't', unit_type: 'WEIGHT' }]) },
+      '/bff/policy': { body: {} },
+      '/bff/auth/me': { body: { id: 1, username: 'f', role: 'FACTORY', display_name: 'F' } },
+      '/bff/inventory/requests/availability': { body: [{ material: 5, unit: 't', available_quantity: '12.5', in_stock: '20' }] },
+      'POST /bff/inventory/requests': (init) => { posted.push(JSON.parse(String(init?.body))); return { body: { id: 'r1', request_number: 'REQ-1' } }; },
+    });
+    const { default: NewRequestPage } = await import('@/app/(app)/requests/new/page');
+    renderWithProviders(<NewRequestPage />);
+    await userEvent.type(screen.getByLabelText('Product / grade to make'), 'Alloy Fe-Al 70/30');
+    await userEvent.type(screen.getByLabelText(/Quantity to make/), '10');
+    await userEvent.type(screen.getByRole('combobox', { name: /Factory/ }), 'unit');
+    await userEvent.click(await screen.findByRole('option', { name: 'Unit 1' }));
+    await userEvent.click(screen.getByLabelText(/This is a mixture/));
+    await userEvent.type(screen.getByRole('combobox', { name: /Material 1/ }), 'iron');
+    await userEvent.click(await screen.findByRole('option', { name: 'Iron (FE)' }));
+    await userEvent.type(screen.getByLabelText('Share (%)'), '70');
+    expect(await screen.findByText(/Lab-passed, available now: 12.5 t/)).toBeInTheDocument();
+    expect(screen.getByText('7 t')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(screen.getByText(/they must add up to 100 %/)).toBeInTheDocument();
+    expect(posted).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: '+ Add material' }));
+    await userEvent.type(screen.getByRole('combobox', { name: /Material 2/ }), 'alu');
+    await userEvent.click(await screen.findByRole('option', { name: 'Aluminium (AL)' }));
+    await userEvent.type(screen.getAllByLabelText('Share (%)')[1], '30');
+    await userEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect(posted[0]).toMatchObject({ factory: 1, product_name: 'Alloy Fe-Al 70/30', product_quantity: '10', product_unit: 2,
+      lines: [{ material: 5, percentage: '70' }, { material: 6, percentage: '30' }] });
   });
 });

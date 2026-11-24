@@ -82,8 +82,8 @@ function ReturnDialog({ line, onClose, onDone }: { line: Line; onClose: () => vo
   const [by, setBy] = useState('');
   const [qc, setQc] = useState(true);
   return (
-    <ConfirmDialog open onClose={onClose} title={`Return from ${line.package_code}`} confirmLabel="Record return" reason="required"
-      description="Returned material becomes a new package and is blocked until the lab (or an inspection) clears it."
+    <ConfirmDialog open onClose={onClose} title={`Leftover returned from ${line.package_code}`} confirmLabel="Record return" reason="required"
+      description="The leftover becomes a new bag with the same expiry date as the original. Once cleared by the lab (or an inspection) it is issued first, before full bags."
       onConfirm={async (reason) => {
         if (!(Number(qty) > 0) || Number(qty) > max) throw new Error(`Return between 0 and ${max} ${line.unit_symbol}.`);
         await post('inventory/returns', { issue_line: line.id, returned_quantity: qty, reason, returned_by_name: by, requires_qc: qc });

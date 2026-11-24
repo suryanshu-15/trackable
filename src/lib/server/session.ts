@@ -53,6 +53,9 @@ export function forwardingHeaders(req: NextRequest): Record<string, string> {
   };
   const requestId = req.headers.get('x-request-id');
   if (requestId) headers['X-Request-ID'] = requestId;
+  // The address the browser used (e.g. http://192.168.1.20:3000), so label QR codes point back to this app.
+  const host = req.headers.get('x-forwarded-host')?.split(',')[0].trim() || req.headers.get('host');
+  if (host) headers['X-Frontend-Origin'] = `${headers['X-Forwarded-Proto']}://${host}`;
   return headers;
 }
 

@@ -80,6 +80,9 @@ export function useRefresh() {
 }
 
 export type Policy = {
+  'receipt.weight_tolerance_percent': string;
+  'receiving.weigh_loaded_before_unloading': boolean;
+  'receiving.weigh_empty_before_finishing': boolean;
   'receiving.line_acceptance': 'WHOLE' | 'PARTIAL';
   'package.unit_codes': string[];
   'package.type': string;

@@ -90,14 +90,23 @@ export function CameraScanner({ open, onClose, onDetected }: {
         setError('Camera access needs HTTPS (or localhost) and a browser with camera support. Use a USB scanner or type the code.');
         return;
       }
-      const Native = (window as unknown as { BarcodeDetector?: new (o: { formats: string[] }) => Detector }).BarcodeDetector;
+      type NativeDetector = (new (o: { formats: string[] }) => Detector) & { getSupportedFormats?: () => Promise<string[]> };
+      const Native = (window as unknown as { BarcodeDetector?: NativeDetector }).BarcodeDetector;
+      // Barcodes have thin bars: ask for a sharp, high-resolution picture from the back camera.
+      const constraints: MediaStreamConstraints = {
+        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      };
       try {
-        if (Native) {
-          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        const wanted = ['code_128', 'qr_code', 'code_39', 'ean_13'];
+        const supported = Native ? await Native.getSupportedFormats?.().catch(() => wanted) ?? wanted : [];
+        const formats = wanted.filter((f) => supported.includes(f));
+        // Use the browser's own reader only if it can read our Code 128 barcode; otherwise ZXing.
+        if (Native && formats.includes('code_128')) {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
           if (stopped || !video.current) return;
           video.current.srcObject = stream;
           await video.current.play();
-          const detector = new Native({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13'] });
+          const detector = new Native({ formats });
           const tick = async () => {
             if (stopped || !video.current) return;
             try {
@@ -109,9 +118,14 @@ export function CameraScanner({ open, onClose, onDetected }: {
           tick();
         } else {
           const { BrowserMultiFormatReader } = await import('@zxing/browser');
+          const { BarcodeFormat, DecodeHintType } = await import('@zxing/library');
           if (stopped || !video.current) return;
-          const reader = new BrowserMultiFormatReader();
-          zxingControls = await reader.decodeFromVideoDevice(undefined, video.current, (result) => {
+          const hints = new Map<number, unknown>([
+            [DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.CODE_128, BarcodeFormat.QR_CODE, BarcodeFormat.CODE_39, BarcodeFormat.EAN_13]],
+            [DecodeHintType.TRY_HARDER, true],
+          ]);
+          const reader = new BrowserMultiFormatReader(hints as never, { delayBetweenScanAttempts: 150 });
+          zxingControls = await reader.decodeFromConstraints(constraints, video.current, (result) => {
             if (result) done(result.getText());
           });
         }
@@ -135,7 +149,7 @@ export function CameraScanner({ open, onClose, onDetected }: {
       ) : (
         <div className="space-y-2">
           <video ref={video} className="aspect-video w-full rounded-md bg-black object-cover" muted playsInline />
-          <p className="text-xs text-slate-500">Point the camera at the package QR code or barcode.</p>
+          <p className="text-xs text-slate-500">Point the camera at the QR code or the barcode. For the barcode, hold the phone level so the bars fill most of the picture, about 10–15 cm away.</p>
         </div>
       )}
       <div className="mt-4 flex justify-end"><Button variant="secondary" onClick={onClose}>Close</Button></div>

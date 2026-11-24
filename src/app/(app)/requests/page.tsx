@@ -36,13 +36,13 @@ export default function RequestsPage() {
         </div>
         {list.error ? <ErrorState error={list.error} /> : !list.data ? <Loading /> : (
           <>
-            <Table head={['Request', 'Factory', 'Production order', 'Materials', 'Required by', 'Requested by', 'Status']} empty={!list.rows.length}>
+            <Table head={['Request', 'Client / product', 'Factory', 'Materials', 'Required by', 'Requested by', 'Status']} empty={!list.rows.length}>
               {list.rows.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-50">
                   <Td><Link className="font-mono font-medium text-brand-700 hover:underline" href={`/requests/${r.id}`}>{r.request_number}</Link><div className="text-xs text-slate-500">{fmtDateTime(r.created_at)}</div></Td>
+                  <Td className="whitespace-normal">{r.product_name || r.client_name ? <><div className="font-medium">{r.product_name || '—'}</div><div className="text-xs text-slate-500">{[r.client_name, r.production_order].filter(Boolean).join(' · ')}</div></> : r.production_order || '—'}</Td>
                   <Td>{r.factory_name}{r.department_name && <div className="text-xs text-slate-500">{r.department_name}</div>}</Td>
-                  <Td>{r.production_order || '—'}</Td>
-                  <Td>{r.lines.map((l) => <div key={l.id} className="text-xs">{l.material_code}: {fmtQty(l.issued_quantity)} / {fmtQty(l.requested_quantity, l.unit_symbol)}</div>)}</Td>
+                  <Td>{r.lines.map((l) => <div key={l.id} className="text-xs">{l.material_code}{l.percentage != null && ` (${Number(l.percentage)}%)`}: {fmtQty(l.issued_quantity)} / {fmtQty(l.requested_quantity, l.unit_symbol)}</div>)}</Td>
                   <Td>{fmtDateTime(r.required_by)}</Td>
                   <Td>{r.requested_by_name}</Td>
                   <Td><StatusBadge status={r.status} label={r.status_display} /></Td>

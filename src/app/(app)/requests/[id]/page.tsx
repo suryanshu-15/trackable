@@ -59,16 +59,22 @@ export default function RequestPage({ params }: { params: Promise<{ id: string }
       <div className="space-y-4">
         <Card title="Request">
           <DL items={[
+            ...(r.client_name || r.product_name ? [
+              ['Client', r.client_name || '—'] as [string, string],
+              ['Product / grade to make', [r.product_name, r.product_quantity && fmtQty(r.product_quantity, r.product_unit_symbol)].filter(Boolean).join(' — ') || '—'] as [string, string],
+            ] : []),
             ['Requested by', r.requested_by_name], ['Raised', fmtDateTime(r.created_at)], ['Required by', fmtDateTime(r.required_by)],
             ['Production order', r.production_order || '—'], ['Cost centre', r.cost_centre || '—'], ['Notes', r.notes || '—'],
           ]} />
           {r.closed_reason && <p className="mt-2 text-sm text-slate-600">Closed: {r.closed_reason}</p>}
         </Card>
-        <Card title="Lines">
-          <Table head={['Material', 'Requested', 'Issued', 'Remaining', 'Reserved packages']}>
+        <Card title={r.lines.some((l) => l.percentage != null) ? 'Composition (materials in the mixture)' : 'Materials'}>
+          <p className="mb-2 text-xs text-slate-500">Only lab-passed bags can be issued.</p>
+          <Table head={['Material', 'Share', 'Requested', 'Issued', 'Remaining', 'Reserved bags']}>
             {r.lines.map((l) => (
               <tr key={l.id}>
-                <Td>{l.material_code}<div className="text-xs text-slate-500">{l.material_name}</div></Td>
+                <Td>{l.material_name}<div className="text-xs text-slate-500">{l.material_code}</div></Td>
+                <Td>{l.percentage != null ? `${Number(l.percentage)} %` : '—'}</Td>
                 <Td>{fmtQty(l.requested_quantity, l.unit_symbol)}</Td>
                 <Td>{fmtQty(l.issued_quantity, l.unit_symbol)}</Td>
                 <Td className="font-semibold">{fmtQty(l.remaining_quantity, l.unit_symbol)}</Td>

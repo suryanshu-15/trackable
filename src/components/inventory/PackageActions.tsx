@@ -15,7 +15,9 @@ export function MoveDialog({ kind, pkg, open, onClose, onDone }: {
 }) {
   const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
-  useEffect(() => { if (open) { setLocation(''); setNotes(''); } }, [open]);
+  // Put-away starts at the location written on the gate register, unless the bag must go to quarantine.
+  const suggested = kind === 'putaway' && !pkg.requires_quarantine && pkg.planned_location ? String(pkg.planned_location) : '';
+  useEffect(() => { if (open) { setLocation(suggested); setNotes(''); } }, [open, suggested]);
   return (
     <ConfirmDialog
       open={open}

@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApi, useMe } from '@/lib/hooks';
-import { navSections } from '@/lib/roles';
+import { navMenu, type NavItem } from '@/lib/roles';
 import { ErrorState, Loading, cx } from './ui';
 import { inputCls } from './forms';
 import { Icons } from './icons';
@@ -22,6 +22,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const [q, setQ] = useState('');
+  const [moreOpen, setMoreOpen] = useState(false);
   const unread = useApi<{ unread_count: number }>(me.data ? 'notifications/unread-count' : null, undefined, { refetchInterval: 60_000 });
 
   useEffect(() => setMenuOpen(false), [pathname]);
@@ -30,7 +31,30 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (me.error || !me.data) return <div className="p-6"><ErrorState error={me.error} onRetry={() => me.refetch()} /></div>;
 
   const user = me.data;
-  const sections = navSections(user.role);
+  const { main, more } = navMenu(user.role);
+  const isActive = (item: NavItem) => pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const showMore = moreOpen || more.some(isActive);
+  const link = (item: NavItem, small = false) => {
+    const active = isActive(item);
+    const Icon = Icons[item.icon];
+    return (
+      <li key={item.href}>
+        <Link
+          href={item.href}
+          aria-current={active ? 'page' : undefined}
+          className={cx(
+            'group flex items-center gap-3 rounded-lg px-3 font-medium transition',
+            small ? 'py-2 text-sm' : 'py-3 text-base',
+            active ? 'bg-gradient-to-r from-brand-600 to-sky-500 text-white shadow-lg shadow-brand-900/40'
+              : 'text-slate-300 hover:bg-white/5 hover:text-white',
+          )}
+        >
+          <Icon size={small ? 18 : 22} className={active ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
+          {item.label}
+        </Link>
+      </li>
+    );
+  };
 
   const search = (e: FormEvent) => {
     e.preventDefault();
@@ -49,34 +73,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="flex h-16 flex-none items-center px-5">
           <Link href="/" aria-label="Trackable home"><Logo size={36} tone="light" subtitle="Material traceability" /></Link>
         </div>
-        <nav aria-label="Main" className="sidebar-scroll flex-1 space-y-6 overflow-y-auto px-3 py-4">
-          {sections.map(({ section, items }) => (
-            <div key={section}>
-              <p className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{section}</p>
-              <ul className="space-y-1">
-                {items.map((item) => {
-                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                  const Icon = Icons[item.icon];
-                  return (
-                    <li key={`${section}-${item.href}`}>
-                      <Link
-                        href={item.href}
-                        aria-current={active ? 'page' : undefined}
-                        className={cx(
-                          'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] font-medium transition',
-                          active ? 'bg-gradient-to-r from-brand-600 to-sky-500 text-white shadow-lg shadow-brand-900/40'
-                            : 'text-slate-300 hover:bg-white/5 hover:text-white',
-                        )}
-                      >
-                        <Icon size={20} className={active ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
-                        {item.label}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+        <nav aria-label="Main" className="sidebar-scroll flex-1 overflow-y-auto px-3 py-4">
+          <ul className="space-y-1">{main.map((item) => link(item))}</ul>
+          {more.length > 0 && (
+            <div className="mt-6">
+              <button type="button" onClick={() => setMoreOpen(!showMore)} aria-expanded={showMore}
+                className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300">
+                More
+                <span aria-hidden="true" className={cx('transition-transform', showMore && 'rotate-180')}>▾</span>
+              </button>
+              {showMore && <ul className="mt-1 space-y-0.5">{more.map((item) => link(item, true))}</ul>}
             </div>
-          ))}
+          )}
         </nav>
         <div className="flex-none border-t border-white/10 p-4">
           <div className="flex items-center gap-3">

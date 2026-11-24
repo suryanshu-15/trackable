@@ -722,6 +722,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/requests/availability/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lab-passed stock the warehouse can issue now, per material — shown while filling a request. */
+        get: operations["inventory_requests_availability_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/returns/": {
         parameters: {
             query?: never;
@@ -1099,6 +1116,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/laboratory/samples/{id}/result/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Simple flow: PASS releases the bag for the factory, FAIL blocks it. */
+        post: operations["laboratory_samples_result_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/laboratory/samples/{id}/start-testing/": {
         parameters: {
             query?: never;
@@ -1160,6 +1194,23 @@ export interface paths {
         get: operations["laboratory_samples_pending_packages_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/laboratory/samples/take/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Simple flow: take one sample from each chosen bag; the bags show 'In lab test'. */
+        post: operations["laboratory_samples_take_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1856,6 +1907,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/receiving/goods-receipts/{id}/gate-entry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Edit a draft gate entry (header and materials together). */
+        put: operations["receiving_goods_receipts_gate_entry_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/receiving/goods-receipts/{id}/gate-out/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The truck leaves the site (gate out time). */
+        post: operations["receiving_goods_receipts_gate_out_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/receiving/goods-receipts/{id}/mark-stored/": {
         parameters: {
             query?: never;
@@ -1999,6 +2084,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/receiving/goods-receipts/{id}/weigh/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Weighbridge reading at receiving: LOADED truck before unloading, EMPTY truck after. */
+        post: operations["receiving_goods_receipts_weigh_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/receiving/goods-receipts/dashboard/": {
         parameters: {
             query?: never;
@@ -2010,6 +2112,23 @@ export interface paths {
         get: operations["receiving_goods_receipts_dashboard_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/receiving/goods-receipts/gate-entry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Create a gate register entry (truck, invoice and materials) in one step; `send` hands it to receiving. */
+        post: operations["receiving_goods_receipts_gate_entry_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2424,6 +2543,13 @@ export interface components {
             readonly required_by: string | null;
             readonly production_order: string;
             readonly cost_centre: string;
+            readonly client_name: string;
+            /** Product / grade */
+            readonly product_name: string;
+            /** Format: decimal */
+            readonly product_quantity: string | null;
+            readonly product_unit: number | null;
+            readonly product_unit_symbol: string;
             readonly notes: string;
             readonly status: components["schemas"]["RequestStatusEnum"];
             readonly status_display: string;
@@ -2440,11 +2566,56 @@ export interface components {
             name: string;
             is_active?: boolean;
         };
+        /** @description One row of the gate register: truck and invoice, plus one row per material. */
+        GateEntryInputRequest: {
+            supplier: number;
+            invoice_number: string;
+            /** Format: date */
+            invoice_date: string;
+            /** Format: date-time */
+            arrival_datetime: string;
+            vehicle_number: string;
+            transporter_name?: string;
+            lr_number?: string;
+            eway_bill_number?: string;
+            driver_name?: string;
+            driver_mobile?: string;
+            gate_notes?: string;
+            lines: components["schemas"]["GateLineInputRequest"][];
+            /**
+             * @description Register and send to receiving now.
+             * @default false
+             */
+            send: boolean;
+        };
+        GateLineInputRequest: {
+            /** Format: uuid */
+            id?: string;
+            material: number;
+            material_name_declared?: string;
+            /** Format: decimal */
+            declared_quantity: string;
+            declared_unit: number;
+            storage_location?: number | null;
+            batch_number?: string;
+            remarks?: string;
+        };
+        GateMaterial: {
+            description: string;
+            quantity: string;
+            unit: string;
+            location: string | null;
+        };
+        GateOutRequest: {
+            /** Format: date-time */
+            at?: string | null;
+        };
         GoodsReceipt: {
             /** Format: uuid */
             readonly id: string;
             /** @description System-generated unique inward reference. */
             readonly receipt_number: string;
+            readonly gate_entry_number: string | null;
             supplier: number;
             readonly supplier_detail: components["schemas"]["Supplier"];
             invoice_number: string;
@@ -2452,8 +2623,15 @@ export interface components {
             invoice_date: string;
             vehicle_number: string;
             driver_name?: string;
+            driver_mobile?: string;
+            transporter_name?: string;
+            lr_number?: string;
+            /** E-way bill number */
+            eway_bill_number?: string;
             /** Format: date-time */
             arrival_datetime: string;
+            /** Format: date-time */
+            readonly gate_out_at: string | null;
             /** Format: decimal */
             gross_weight?: string | null;
             /** Format: decimal */
@@ -2464,6 +2642,10 @@ export interface components {
             readonly weight_unit_symbol: string;
             weighing_method?: components["schemas"]["WeighingMethodEnum"];
             weighbridge_reference?: string;
+            /** Format: date-time */
+            readonly gross_weighed_at: string | null;
+            /** Format: date-time */
+            readonly tare_weighed_at: string | null;
             purchase_order_number?: string;
             delivery_challan_number?: string;
             readonly status: components["schemas"]["ReceiptStatusEnum"];
@@ -2487,6 +2669,7 @@ export interface components {
             readonly weight_discrepancy: {
                 [key: string]: unknown;
             } | null;
+            readonly invoice_weight_kg: string | null;
             readonly created_by: number | null;
             readonly created_by_name: string;
             /** Format: date-time */
@@ -2499,16 +2682,29 @@ export interface components {
             readonly id: string;
             /** @description System-generated unique inward reference. */
             readonly receipt_number: string;
+            readonly gate_entry_number: string | null;
+            readonly materials: components["schemas"]["GateMaterial"][];
+            /** @description Invoice weight in kg (weight-unit rows only), shown when weighing the truck. */
+            readonly invoice_weight_kg: string | null;
+            readonly weight_unit_symbol: string;
             supplier: number;
             readonly supplier_name: string;
             invoice_number: string;
             /** Format: date */
             invoice_date: string;
             vehicle_number: string;
+            transporter_name?: string;
+            lr_number?: string;
             /** Format: date-time */
             arrival_datetime: string;
+            /** Format: date-time */
+            gate_out_at?: string | null;
             readonly status: components["schemas"]["ReceiptStatusEnum"];
             readonly status_display: string;
+            /** Format: decimal */
+            gross_weight?: string | null;
+            /** Format: decimal */
+            tare_weight?: string | null;
             /** Format: decimal */
             net_weight?: string | null;
             readonly line_count: number;
@@ -2522,6 +2718,11 @@ export interface components {
             invoice_date: string;
             vehicle_number: string;
             driver_name?: string;
+            driver_mobile?: string;
+            transporter_name?: string;
+            lr_number?: string;
+            /** E-way bill number */
+            eway_bill_number?: string;
             /** Format: date-time */
             arrival_datetime: string;
             /** Format: decimal */
@@ -2607,6 +2808,8 @@ export interface components {
             required_tests?: number[];
             quality_specification?: string;
             remarks?: string;
+            storage_location?: number | null;
+            readonly storage_location_code: string;
             readonly has_verification: boolean;
             readonly verification_status: string;
             /** Format: decimal */
@@ -2642,6 +2845,7 @@ export interface components {
             required_tests?: number[];
             quality_specification?: string;
             remarks?: string;
+            storage_location?: number | null;
         };
         IssueLineInputRequest: {
             /** Format: uuid */
@@ -2681,6 +2885,8 @@ export interface components {
             readonly is_overdue: boolean;
             /** Format: date-time */
             readonly created_at: string;
+            readonly bags: components["schemas"]["SampleBag"][];
+            readonly result: components["schemas"]["SampleResult"] | null;
             /** Format: decimal */
             readonly sampled_quantity: string | null;
             readonly sampled_unit: number | null;
@@ -2743,6 +2949,8 @@ export interface components {
             readonly is_overdue: boolean;
             /** Format: date-time */
             readonly created_at: string;
+            readonly bags: components["schemas"]["SampleBag"][];
+            readonly result: components["schemas"]["SampleResult"] | null;
         };
         LabTestDefinition: {
             readonly id: number;
@@ -3053,6 +3261,13 @@ export interface components {
             /** @default  */
             cost_centre: string;
             /** @default  */
+            client_name: string;
+            /** @default  */
+            product_name: string;
+            /** Format: decimal */
+            product_quantity?: string | null;
+            product_unit?: number | null;
+            /** @default  */
             notes: string;
             lines: components["schemas"]["RequestLineInputRequest"][];
         };
@@ -3070,6 +3285,8 @@ export interface components {
             readonly remaining_quantity: string;
             readonly unit: number;
             readonly unit_symbol: string;
+            /** Format: decimal */
+            readonly percentage: string | null;
             readonly notes: string;
             readonly reservations: components["schemas"]["Reservation"][];
         };
@@ -3170,6 +3387,7 @@ export interface components {
             /** Format: uuid */
             readonly invoice_line: string;
             readonly invoice_line_number: number;
+            readonly planned_location: number;
             /**
              * Format: uuid
              * @description Set when a package is split / repacked from another.
@@ -3389,6 +3607,14 @@ export interface components {
             current_page?: number;
             results?: components["schemas"]["InvoiceLine"][];
         };
+        PaginatedLabSampleList: {
+            count?: number;
+            next?: string | null;
+            previous?: string | null;
+            total_pages?: number;
+            current_page?: number;
+            results?: components["schemas"]["LabSample"][];
+        };
         PaginatedLabSampleListList: {
             count?: number;
             next?: string | null;
@@ -3557,6 +3783,15 @@ export interface components {
             current_page?: number;
             results?: components["schemas"]["Warehouse"][];
         };
+        PassFailRequest: {
+            result: components["schemas"]["ResultEnum"];
+            /** @default  */
+            remarks: string;
+            /** Format: date */
+            new_expiry_date?: string | null;
+            /** Format: date */
+            new_retest_date?: string | null;
+        };
         PatchedDepartmentRequest: {
             code?: string;
             name?: string;
@@ -3575,6 +3810,11 @@ export interface components {
             invoice_date?: string;
             vehicle_number?: string;
             driver_name?: string;
+            driver_mobile?: string;
+            transporter_name?: string;
+            lr_number?: string;
+            /** E-way bill number */
+            eway_bill_number?: string;
             /** Format: date-time */
             arrival_datetime?: string;
             /** Format: decimal */
@@ -3613,6 +3853,7 @@ export interface components {
             required_tests?: number[];
             quality_specification?: string;
             remarks?: string;
+            storage_location?: number | null;
         };
         PatchedLabTestDefinitionRequest: {
             code?: string;
@@ -3891,8 +4132,10 @@ export interface components {
         RequestLineInputRequest: {
             material: number;
             /** Format: decimal */
-            quantity: string;
-            unit: number;
+            quantity?: string;
+            unit?: number;
+            /** Format: decimal */
+            percentage?: string | null;
             /** @default  */
             notes: string;
         };
@@ -3932,6 +4175,12 @@ export interface components {
             remarks?: string;
         };
         /**
+         * @description * `PASS` - PASS
+         *     * `FAIL` - FAIL
+         * @enum {string}
+         */
+        ResultEnum: "PASS" | "FAIL";
+        /**
          * @description * `PASS` - Pass
          *     * `FAIL` - Fail
          *     * `INCONCLUSIVE` - Inconclusive
@@ -3953,14 +4202,19 @@ export interface components {
          *     * `GATE` - Gate Operator
          *     * `RECEIVING` - Receiving / Unloading Worker
          *     * `WAREHOUSE` - Warehouse Operator
-         *     * `LAB_TECH` - Lab Technician
-         *     * `LAB_REVIEWER` - Lab Reviewer / Quality Manager
+         *     * `LAB` - Laboratory
          *     * `FACTORY` - Factory / Requester
          *     * `AUDITOR` - Auditor (Read-only)
          *     * `MANAGER` - Manager
          * @enum {string}
          */
-        RoleEnum: "ADMIN" | "GATE" | "RECEIVING" | "WAREHOUSE" | "LAB_TECH" | "LAB_REVIEWER" | "FACTORY" | "AUDITOR" | "MANAGER";
+        RoleEnum: "ADMIN" | "GATE" | "RECEIVING" | "WAREHOUSE" | "LAB" | "FACTORY" | "AUDITOR" | "MANAGER";
+        SampleBag: {
+            id: string;
+            package_id: string;
+            quantity: string;
+            location: string | null;
+        };
         SampleCreateRequest: {
             packages: string[];
             material?: number;
@@ -3988,6 +4242,12 @@ export interface components {
             readonly drawn_quantity: string | null;
             readonly notes: string;
         };
+        SampleResult: {
+            verdict: string;
+            remarks: string;
+            /** Format: date-time */
+            decided_at: string;
+        };
         /**
          * @description * `REQUESTED` - Requested (awaiting collection)
          *     * `COLLECTED` - Collected
@@ -4004,6 +4264,12 @@ export interface components {
             quantities: string[];
             reason: string;
         };
+        /**
+         * @description * `LOADED` - LOADED
+         *     * `EMPTY` - EMPTY
+         * @enum {string}
+         */
+        StageEnum: "LOADED" | "EMPTY";
         StockAdjustment: {
             /** Format: uuid */
             readonly id: string;
@@ -4109,6 +4375,11 @@ export interface components {
             gst_number?: string;
             notes?: string;
             is_active?: boolean;
+        };
+        TakeSamplesRequest: {
+            packages: string[];
+            /** @default  */
+            notes: string;
         };
         TimelineEvent: {
             /** Format: date-time */
@@ -4330,6 +4601,14 @@ export interface components {
             name: string;
             address?: string;
             is_active?: boolean;
+        };
+        WeighInputRequest: {
+            stage: components["schemas"]["StageEnum"];
+            /** Format: decimal */
+            weight: string;
+            unit: number;
+            /** @default  */
+            weighbridge_reference: string;
         };
         /**
          * @description * `WEIGHBRIDGE` - Weighbridge
@@ -4594,12 +4873,11 @@ export interface operations {
                  *     * `GATE` - Gate Operator
                  *     * `RECEIVING` - Receiving / Unloading Worker
                  *     * `WAREHOUSE` - Warehouse Operator
-                 *     * `LAB_TECH` - Lab Technician
-                 *     * `LAB_REVIEWER` - Lab Reviewer / Quality Manager
+                 *     * `LAB` - Laboratory
                  *     * `FACTORY` - Factory / Requester
                  *     * `AUDITOR` - Auditor (Read-only)
                  *     * `MANAGER` - Manager */
-                role?: "ADMIN" | "AUDITOR" | "FACTORY" | "GATE" | "LAB_REVIEWER" | "LAB_TECH" | "MANAGER" | "RECEIVING" | "WAREHOUSE";
+                role?: "ADMIN" | "AUDITOR" | "FACTORY" | "GATE" | "LAB" | "MANAGER" | "RECEIVING" | "WAREHOUSE";
                 /** @description A search term. */
                 search?: string;
             };
@@ -5869,6 +6147,30 @@ export interface operations {
             };
         };
     };
+    inventory_requests_availability_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated material ids */
+                materials?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     inventory_returns_list: {
         parameters: {
             query?: {
@@ -6538,6 +6840,34 @@ export interface operations {
             };
         };
     };
+    laboratory_samples_result_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this lab sample. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PassFailRequest"];
+                "multipart/form-data": components["schemas"]["PassFailRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PassFailRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualityDisposition"];
+                };
+            };
+        };
+    };
     laboratory_samples_start_testing_create: {
         parameters: {
             query?: never;
@@ -6670,6 +7000,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedPackageListList"];
+                };
+            };
+        };
+    };
+    laboratory_samples_take_create: {
+        parameters: {
+            query?: {
+                active?: boolean;
+                batch_number?: string;
+                material?: number;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                overdue?: boolean;
+                package?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                /** @description * `REQUESTED` - Requested (awaiting collection)
+                 *     * `COLLECTED` - Collected
+                 *     * `RECEIVED_BY_LAB` - Received by Lab
+                 *     * `TESTING` - Testing
+                 *     * `RESULTS_SUBMITTED` - Results awaiting review
+                 *     * `RETEST_REQUIRED` - Retest Required
+                 *     * `COMPLETED` - Completed
+                 *     * `CANCELLED` - Cancelled */
+                status?: ("CANCELLED" | "COLLECTED" | "COMPLETED" | "RECEIVED_BY_LAB" | "REQUESTED" | "RESULTS_SUBMITTED" | "RETEST_REQUIRED" | "TESTING")[];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TakeSamplesRequest"];
+                "multipart/form-data": components["schemas"]["TakeSamplesRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TakeSamplesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLabSampleList"];
                 };
             };
         };
@@ -8816,6 +9194,65 @@ export interface operations {
             };
         };
     };
+    receiving_goods_receipts_gate_entry_update: {
+        parameters: {
+            query?: {
+                /** @description Proceed even though a matching supplier invoice exists. */
+                acknowledge_duplicate?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this goods receipt. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GateEntryInputRequest"];
+                "multipart/form-data": components["schemas"]["GateEntryInputRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["GateEntryInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+        };
+    };
+    receiving_goods_receipts_gate_out_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this goods receipt. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GateOutRequest"];
+                "multipart/form-data": components["schemas"]["GateOutRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["GateOutRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+        };
+    };
     receiving_goods_receipts_mark_stored_create: {
         parameters: {
             query?: never;
@@ -9061,6 +9498,34 @@ export interface operations {
             };
         };
     };
+    receiving_goods_receipts_weigh_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this goods receipt. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeighInputRequest"];
+                "multipart/form-data": components["schemas"]["WeighInputRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["WeighInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+        };
+    };
     receiving_goods_receipts_dashboard_retrieve: {
         parameters: {
             query?: never;
@@ -9069,6 +9534,34 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoodsReceipt"];
+                };
+            };
+        };
+    };
+    receiving_goods_receipts_gate_entry_create: {
+        parameters: {
+            query?: {
+                /** @description Proceed even though a matching supplier invoice exists. */
+                acknowledge_duplicate?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GateEntryInputRequest"];
+                "multipart/form-data": components["schemas"]["GateEntryInputRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["GateEntryInputRequest"];
+            };
+        };
         responses: {
             200: {
                 headers: {

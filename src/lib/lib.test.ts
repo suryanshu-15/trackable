@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { ApiError, toSearch } from './api';
 import { code128B } from './code128';
 import { fmtDate, fmtQty, humanize } from './format';
-import { LANDING, can, navFor } from './roles';
+import { LANDING, can, navFor, navMenu } from './roles';
 import { safeNext } from '@/app/login/LoginForm';
-import { validateReceipt, initialReceipt } from '@/components/receiving/ReceiptForm';
+import { validateGateEntry, initialGateEntry } from '@/components/receiving/GateEntryForm';
 import { storableLocations } from '@/components/inventory/LocationPicker';
 import type { Location } from './types';
 
@@ -56,10 +56,20 @@ describe('role navigation (UI only — the API enforces permissions)', () => {
     expect(navFor('MANAGER').map((n) => n.href)).toContain('/admin/master');
     expect(navFor('GATE').map((n) => n.href)).not.toContain('/admin/master');
   });
+
+  it('keeps each role\'s menu short and puts the rest under More', () => {
+    const gate = navMenu('GATE');
+    expect(gate.main.map((n) => n.href)).toEqual(['/gate', '/receipts/new', '/scan']);
+    expect(gate.more.map((n) => n.href)).toContain('/reports');
+    for (const role of ['ADMIN', 'GATE', 'RECEIVING', 'WAREHOUSE', 'LAB', 'FACTORY', 'AUDITOR', 'MANAGER'] as const) {
+      expect(navMenu(role).main.length).toBeLessThanOrEqual(5);
+    }
+  });
   it('mirrors server-side separation of duties', () => {
     expect(can.approveAdjustment('WAREHOUSE')).toBe(false);
     expect(can.approveAdjustment('MANAGER')).toBe(true);
     expect(can.createReceipt('RECEIVING')).toBe(false);
+    expect((['ADMIN', 'MANAGER', 'GATE', 'RECEIVING', 'WAREHOUSE'] as const).filter((r) => can.correctWeights(r))).toEqual(['ADMIN', 'MANAGER']);
     expect(can.issue('FACTORY')).toBe(false);
   });
 });
@@ -74,11 +84,14 @@ describe('post-login redirect', () => {
   });
 });
 
-describe('receipt validation', () => {
-  it('requires the gate essentials and sane weights', () => {
-    const errors = validateReceipt({ ...initialReceipt(), gross_weight: '100', tare_weight: '150' });
-    expect(Object.keys(errors).sort()).toEqual(['invoice_number', 'supplier', 'tare_weight', 'vehicle_number', 'weight_unit']);
-    expect(validateReceipt({ ...initialReceipt(), supplier: '1', invoice_number: 'I', vehicle_number: 'V' })).toEqual({});
+describe('gate entry validation', () => {
+  it('requires the gate register essentials and a valid row per material', () => {
+    const blank = { ...initialGateEntry(), driver_mobile: 'abc' };
+    expect(Object.keys(validateGateEntry(blank)).sort()).toEqual(
+      ['driver_mobile', 'invoice_number', 'lines.0.material', 'lines.0.quantity', 'lines.0.unit', 'supplier', 'vehicle_number']);
+    const ok = { ...initialGateEntry(), supplier: '1', invoice_number: 'I', vehicle_number: 'V',
+      lines: [{ key: 'a', material: '5', description: '', quantity: '0.25', unit: '2', location: '' }] };
+    expect(validateGateEntry(ok)).toEqual({});
   });
 });
 

@@ -16,6 +16,20 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { ScanBox } from '@/components/Scanner';
 import { MoveDialog } from '@/components/inventory/PackageActions';
 import { useToast } from '@/components/Toast';
+import { WeighDialog } from '@/components/receiving/WeighDialog';
+import { WeightCorrectionDialog } from '@/components/receiving/WeightCorrectionDialog';
+
+/** What receiving does next with a truck in the queue. */
+function nextFor(r: ReceiptListItem): string {
+  switch (r.status) {
+    case 'AWAITING_UNLOADING': return r.gross_weight == null ? 'Weigh the loaded truck' : 'Start unloading';
+    case 'UNLOADING_IN_PROGRESS': return 'Check materials and make bags';
+    case 'EXCEPTION': return 'Waiting for a manager decision';
+    case 'VERIFICATION_PENDING': return r.tare_weight == null ? 'Weigh the empty truck' : 'Finish unloading';
+    case 'UNLOADED': case 'PUTAWAY_IN_PROGRESS': return 'Put the bags away';
+    default: return '';
+  }
+}
 
 const QUEUE = ['AWAITING_UNLOADING', 'UNLOADING_IN_PROGRESS', 'EXCEPTION', 'VERIFICATION_PENDING', 'UNLOADED', 'PUTAWAY_IN_PROGRESS'];
 
@@ -33,6 +47,8 @@ export default function UnloadingPage() {
   const [truck, setTruck] = useState('');
   const [starting, setStarting] = useState<string | null>(null);
   const [startError, setStartError] = useState<unknown>(null);
+  const [weighing, setWeighing] = useState<ReceiptListItem | null>(null);
+  const [editingWeight, setEditingWeight] = useState<ReceiptListItem | null>(null);
   const inQueue = QUEUE.flatMap((s) => (queue.data?.results ?? []).filter((r) => r.status === s));
   const found = inQueue.filter((r) => matchesTruck(r, truck));
   // Not in the queue? Say where that truck is (e.g. still a draft at the gate).
@@ -66,12 +82,12 @@ export default function UnloadingPage() {
 
   return (
     <>
-      <PageHeader title="Unloading & put-away" subtitle="Verify trucks, label packages and put them away." />
+      <PageHeader title="Receiving" subtitle="Weigh the truck, unload, check, make bags and put them away." />
       <div className="space-y-4">
-        <Card title={`Unloading queue (${inQueue.length})`}>
+        <Card title={`Trucks at receiving (${inQueue.length})`}>
           <TextField
             label="Find truck"
-            placeholder="Number plate, receipt or invoice number — e.g. OD02AB4521"
+            placeholder="Vehicle no., gate entry or invoice — e.g. OD02AB4521"
             value={truck}
             autoFocus
             autoComplete="off"
@@ -87,8 +103,8 @@ export default function UnloadingPage() {
                 <ul className="mt-1 space-y-1">
                   {elsewhere.data.results.map((r) => (
                     <li key={r.id}>
-                      <Link href={`/receipts/${r.id}`} className="font-mono font-semibold underline">{r.vehicle_number}</Link> · {r.receipt_number} — <StatusBadge status={r.status} label={r.status_display} />
-                      {['DRAFT', 'GATE_REGISTERED'].includes(r.status) && ' (the gate must finish it and send it for unloading first)'}
+                      <Link href={`/receipts/${r.id}`} className="font-mono font-semibold underline">{r.vehicle_number}</Link> · {r.gate_entry_number ?? r.receipt_number} — <StatusBadge status={r.status} />
+                      {['DRAFT', 'GATE_REGISTERED'].includes(r.status) && ' (the gate must finish the entry and send it to receiving first)'}
                     </li>
                   ))}
                 </ul>
@@ -102,14 +118,21 @@ export default function UnloadingPage() {
                     <Link href={`/receipts/${r.id}`} className="flex items-center gap-2 font-mono text-lg font-bold text-slate-900 hover:text-brand-700">
                       <Icons.truck size={20} className="text-slate-400" />{r.vehicle_number}
                     </Link>
-                    <StatusBadge status={r.status} label={r.status_display} />
+                    <StatusBadge status={r.status} />
                   </div>
                   <div className="mt-1 text-sm text-slate-700">{r.supplier_name}</div>
-                  <div className="text-xs text-slate-500">{r.receipt_number} · invoice {r.invoice_number} · {r.line_count} line(s)</div>
-                  <div className="text-xs text-slate-500">Arrived {fmtDateTime(r.arrival_datetime)}</div>
+                  <div className="text-xs text-slate-500">{r.gate_entry_number ?? r.receipt_number} · gate in {fmtDateTime(r.arrival_datetime)}</div>
+                  <ul className="mt-1 text-xs text-slate-600">{r.materials.map((m, i) => <li key={i}>{m.description} — {fmtQty(m.quantity, m.unit)}</li>)}</ul>
+                  {r.gross_weight != null && (
+                    <p className="mt-1 text-xs text-slate-600">Loaded {fmtQty(r.gross_weight, r.weight_unit_symbol)}{r.tare_weight != null && <> · empty {fmtQty(r.tare_weight, r.weight_unit_symbol)}</>}</p>
+                  )}
+                  {nextFor(r) && <p className="mt-2 text-sm font-medium text-brand-700">Next: {nextFor(r)}</p>}
                   <div className="mt-3 flex gap-2">
-                    {r.status === 'AWAITING_UNLOADING' && me.data && can.unload(me.data.role) && (
-                      <Button size="sm" loading={starting === r.id} disabled={!!starting} onClick={() => startUnloading(r)}>Start unloading</Button>
+                    {r.status === 'AWAITING_UNLOADING' && me.data && can.unload(me.data.role) && (r.gross_weight == null
+                      ? <Button size="sm" onClick={() => setWeighing(r)}>Weigh loaded truck</Button>
+                      : <Button size="sm" loading={starting === r.id} disabled={!!starting} onClick={() => startUnloading(r)}>Start unloading</Button>)}
+                    {r.gross_weight != null && me.data && can.correctWeights(me.data.role) && (
+                      <Button size="sm" variant="secondary" onClick={() => setEditingWeight(r)}>Edit weight</Button>
                     )}
                     <LinkButton size="sm" href={`/receipts/${r.id}`}>Open</LinkButton>
                   </div>
@@ -119,8 +142,8 @@ export default function UnloadingPage() {
           )}
         </Card>
 
-        <Card title="Scan to put away">
-          <ScanBox onScan={onScan} label="Scan a package label" autoFocus={false} />
+        <Card title="Put a bag away">
+          <ScanBox onScan={onScan} label="Scan the bag label" autoFocus={false} />
           <div className="mt-2"><ActionError error={scanError} /></div>
         </Card>
 
@@ -131,15 +154,24 @@ export default function UnloadingPage() {
           )}
         </Card>
 
-        <Card title={`Put-away tasks (${putaway.data?.count ?? '…'})`}>
+        <Card title={`Bags waiting for put-away (${putaway.data?.count ?? '…'})`}>
           {!putaway.data ? <Loading /> : putaway.data.results.length === 0 ? <p className="text-sm text-slate-500">Nothing awaiting put-away.</p> : (
             <>
-              {putaway.data.results.some((p) => p.requires_quarantine) && <Alert tone="info">Packages pending QC must go to a quarantine location.</Alert>}
+              {putaway.data.results.some((p) => p.requires_quarantine) && <Alert tone="info">Bags waiting for the lab must go to a quarantine location.</Alert>}
               <div className="mt-2"><PackageTable rows={putaway.data.results} /></div>
             </>
           )}
         </Card>
       </div>
+      {editingWeight && (
+        <WeightCorrectionDialog open receipt={editingWeight} onClose={() => setEditingWeight(null)}
+          onDone={() => { toast(`Weight updated for ${editingWeight.vehicle_number}; the change is recorded.`); refresh(); }} />
+      )}
+      {weighing && (
+        <WeighDialog stage="LOADED" receipt={{ id: weighing.id, gross_weight: null, weight_unit: null, weight_unit_symbol: '', invoice_weight_kg: weighing.invoice_weight_kg }}
+          onClose={() => setWeighing(null)}
+          onDone={(msg) => { toast(msg); refresh(); router.push(`/receipts/${weighing.id}`); }} />
+      )}
       {scanned && (
         <MoveDialog kind="putaway" pkg={scanned} open onClose={() => setScanned(null)}
           onDone={(p) => { toast(`${p.package_id} stored at ${p.location_display}.`); refresh(); }} />
@@ -150,14 +182,14 @@ export default function UnloadingPage() {
 
 function PackageTable({ rows }: { rows: PackageListItem[] }) {
   return (
-    <Table head={['Package', 'Material', 'Lot', 'Quantity', 'QC', 'Receipt']}>
+    <Table head={['Bag', 'Material', 'Lot', 'Quantity', 'Lab', 'Receipt']}>
       {rows.map((p) => (
         <tr key={p.id}>
           <Td><Link className="font-mono text-brand-700 hover:underline" href={`/packages/${p.id}`}>{p.package_id}</Link></Td>
           <Td>{p.material_code}</Td>
           <Td className="font-mono">{p.batch_number || '—'}</Td>
           <Td>{fmtQty(p.current_quantity, p.unit_symbol)}</Td>
-          <Td><StatusBadge status={p.qc_status} label={p.qc_status_display} />{p.requires_quarantine && <span className="ml-1 text-xs text-amber-700">→ quarantine</span>}</Td>
+          <Td><StatusBadge status={p.qc_status} />{p.requires_quarantine && <span className="ml-1 text-xs text-amber-700">→ quarantine</span>}</Td>
           <Td className="font-mono text-xs">{p.receipt_number}</Td>
         </tr>
       ))}

@@ -8,7 +8,7 @@ import { code128Bars } from '@/lib/code128';
 import { fmtDate, fmtQty } from '@/lib/format';
 import { useRefresh } from '@/lib/hooks';
 import type { LabelData, Package } from '@/lib/types';
-import { ActionError, Alert, Button, Card, ErrorState, Loading, PageHeader } from '@/components/ui';
+import { ActionError, Alert, Button, Card, ErrorState, LinkButton, Loading, PageHeader } from '@/components/ui';
 import { TextArea, TextField } from '@/components/forms';
 import { Modal } from '@/components/Dialog';
 import { useToast } from '@/components/Toast';
@@ -30,6 +30,7 @@ export function LabelSheet() {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
 
   const labels = useQueries({ queries: ids.map((id) => ({ queryKey: [`inventory/packages/${id}/label`, {}], queryFn: () => api<LabelData>(`inventory/packages/${id}/label`) })) });
   const details = useQueries({ queries: ids.map((id) => ({ queryKey: [`inventory/packages/${id}`, {}], queryFn: () => api<Package>(`inventory/packages/${id}`) })) });
@@ -49,6 +50,10 @@ export function LabelSheet() {
   const reprints = release ? [] : pkgs.filter((p) => p.label_print_count > 0);
   const blocked = release ? pkgs.filter((p) => !p.allowed_actions.includes('print_release_tag')) : pkgs.filter((p) => !p.allowed_actions.some((a) => a === 'print_label' || a === 'reprint_label'));
   const needReason = reprints.length > 0 || release;
+  // Where the person came from: the truck's gate entry (to make the next bag), or the bag for a release tag.
+  const receipts = [...new Set(pkgs.map((p) => p.receipt).filter(Boolean))];
+  const back = release && pkgs.length === 1 ? { href: `/packages/${pkgs[0].id}`, label: 'Back to the bag' }
+    : receipts.length === 1 ? { href: `/receipts/${receipts[0]}`, label: 'Back to the gate entry' } : null;
 
   const record = async () => {
     if (needReason && !reason.trim() && reprints.length > 0) { setError(new Error('A reason is required for reprints.')); return; }
@@ -69,7 +74,7 @@ export function LabelSheet() {
     refresh();
     if (failures.length) setError(new Error(`Not recorded — ${failures.join('; ')}`));
     else {
-      setConfirming(false);
+      setDone(true);
       toast(`${pkgs.length - blocked.length} ${release ? 'release tag' : 'label'} print(s) recorded.`);
     }
   };
@@ -80,7 +85,12 @@ export function LabelSheet() {
         <PageHeader
           title={release ? 'Print release tags' : 'Print package labels'}
           subtitle={`${pkgs.length} label(s) · 100 × 60 mm sticker · one label per page${release ? ' · load green label stock' : ''}`}
-          actions={<Button onClick={() => window.print()} disabled={blocked.length === pkgs.length}>Print</Button>}
+          actions={
+            <>
+              {back && <LinkButton href={back.href}>← {back.label}</LinkButton>}
+              <Button onClick={() => window.print()} disabled={blocked.length === pkgs.length}>Print</Button>
+            </>
+          }
         />
         <Card className="mb-4">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -98,13 +108,28 @@ export function LabelSheet() {
         {labels.map((q, i) => blocked.includes(pkgs[i]) ? null : <Label key={ids[i]} data={q.data!} id={ids[i]} release={release} />)}
       </div>
 
-      <Modal open={confirming} onClose={() => setConfirming(false)} title="Did the labels print correctly?">
-        <p className="text-sm text-slate-700">Confirm only if every label printed legibly and is ready to attach.</p>
-        <div className="mt-3"><ActionError error={error} /></div>
-        <div className="mt-4 flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setConfirming(false)}>No, not yet</Button>
-          <Button onClick={record} loading={busy}>Yes, record print</Button>
-        </div>
+      <Modal open={confirming} onClose={() => { setConfirming(false); setDone(false); }} title={done ? 'Print recorded' : 'Did the labels print correctly?'}>
+        {done ? (
+          <>
+            <p className="text-sm text-slate-700">
+              {release ? 'Stick the green tag on the bag.' : 'Stick one label on each bag.'}
+              {back && !release && ' Go back to the gate entry to make the next bag and print its label.'}
+            </p>
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => { setConfirming(false); setDone(false); }}>Stay here</Button>
+              {back && <LinkButton variant="primary" href={back.href}>{back.label}</LinkButton>}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-slate-700">Confirm only if every label printed legibly and is ready to attach.</p>
+            <div className="mt-3"><ActionError error={error} /></div>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirming(false)}>No, not yet</Button>
+              <Button onClick={record} loading={busy}>Yes, record print</Button>
+            </div>
+          </>
+        )}
       </Modal>
 
       <style>{`
@@ -123,7 +148,7 @@ export function LabelSheet() {
 function Barcode({ value }: { value: string }) {
   const bars = code128Bars(value);
   return (
-    <svg viewBox={`0 0 ${bars.width} 30`} preserveAspectRatio="none" className="h-[9mm] w-full" role="img" aria-label={`Barcode ${value}`}>
+    <svg viewBox={`0 0 ${bars.width} 30`} preserveAspectRatio="none" className="h-[11mm] w-full" role="img" aria-label={`Barcode ${value}`}>
       {bars.map((b, i) => <rect key={i} x={b.x} y={0} width={b.w} height={30} fill="black" />)}
     </svg>
   );
@@ -149,7 +174,8 @@ function Label({ data, id, release }: { data: LabelData; id: string; release: bo
           <div>Exp {fmtDate(data.expiry_date)}{data.retest_date && ` · Retest ${fmtDate(data.retest_date)}`}</div>
         </div>
       </div>
-      <div className="mt-[1mm] truncate text-[2.4mm]">{data.supplier} · {data.receipt_number}/L{data.line_number} · rcvd {fmtDate(data.received_date)}{data.parent_package_id && ` · from ${data.parent_package_id}`}</div>
+      {/* Only the barcode's own value above it, so staff can type it if the barcode won't scan. */}
+      <div className="mt-[1mm] text-center font-mono text-[3mm] font-semibold tracking-wider">{data.barcode_value}</div>
       <Barcode value={data.barcode_value} />
     </div>
   );
