@@ -2579,6 +2579,7 @@ export interface components {
             lr_number?: string;
             eway_bill_number?: string;
             driver_name?: string;
+            driver_licence_number?: string;
             driver_mobile?: string;
             gate_notes?: string;
             lines: components["schemas"]["GateLineInputRequest"][];
@@ -2624,6 +2625,8 @@ export interface components {
             vehicle_number: string;
             driver_name?: string;
             driver_mobile?: string;
+            /** DL no. */
+            driver_licence_number?: string;
             transporter_name?: string;
             lr_number?: string;
             /** E-way bill number */
@@ -2719,6 +2722,8 @@ export interface components {
             vehicle_number: string;
             driver_name?: string;
             driver_mobile?: string;
+            /** DL no. */
+            driver_licence_number?: string;
             transporter_name?: string;
             lr_number?: string;
             /** E-way bill number */
@@ -3811,6 +3816,8 @@ export interface components {
             vehicle_number?: string;
             driver_name?: string;
             driver_mobile?: string;
+            /** DL no. */
+            driver_licence_number?: string;
             transporter_name?: string;
             lr_number?: string;
             /** E-way bill number */

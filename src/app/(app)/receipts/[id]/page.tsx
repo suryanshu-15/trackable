@@ -242,6 +242,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
               ['Vehicle no.', <span key="v" className="font-mono">{r.vehicle_number}</span>], ['Transporter', r.transporter_name || '—'],
               ['LR no.', r.lr_number || '—'], ['E-way bill no.', r.eway_bill_number || '—'],
               ['Driver', [r.driver_name, r.driver_mobile].filter(Boolean).join(' · ') || '—'],
+              ['DL no.', r.driver_licence_number || '—'],
               ['Entered by', r.created_by_name], ['System no.', <span key="s" className="font-mono text-xs">{r.receipt_number}</span>],
             ]} />
 

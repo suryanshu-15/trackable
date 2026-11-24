@@ -18,7 +18,7 @@ export type GateLine = { key: string; id?: string; material: string; description
 export type GateEntry = {
   arrival_datetime: string; supplier: string; invoice_number: string; invoice_date: string;
   vehicle_number: string; transporter_name: string; lr_number: string; eway_bill_number: string;
-  driver_name: string; driver_mobile: string; lines: GateLine[];
+  driver_name: string; driver_mobile: string; driver_licence_number: string; lines: GateLine[];
 };
 
 let seq = 0;
@@ -36,6 +36,7 @@ export function initialGateEntry(r?: Receipt): GateEntry {
     eway_bill_number: r?.eway_bill_number ?? '',
     driver_name: r?.driver_name ?? '',
     driver_mobile: r?.driver_mobile ?? '',
+    driver_licence_number: r?.driver_licence_number ?? '',
     lines: r?.invoice_lines.length
       ? r.invoice_lines.map((l) => ({
         key: l.id, id: l.id, material: l.material ? String(l.material) : '', description: l.material_name_declared ?? '',
@@ -68,7 +69,7 @@ export function gateEntryBody(v: GateEntry, send: boolean) {
     arrival_datetime: v.arrival_datetime, supplier: Number(v.supplier), invoice_number: v.invoice_number.trim(),
     invoice_date: v.invoice_date, vehicle_number: v.vehicle_number.trim(), transporter_name: v.transporter_name.trim(),
     lr_number: v.lr_number.trim(), eway_bill_number: v.eway_bill_number.trim(), driver_name: v.driver_name.trim(),
-    driver_mobile: v.driver_mobile.trim(), send,
+    driver_mobile: v.driver_mobile.trim(), driver_licence_number: v.driver_licence_number.trim(), send,
     lines: v.lines.map((l) => ({
       ...(l.id ? { id: l.id } : {}), material: Number(l.material), material_name_declared: l.description.trim(),
       declared_quantity: l.quantity, declared_unit: Number(l.unit), storage_location: l.location ? Number(l.location) : null,
@@ -160,6 +161,8 @@ export function GateEntryForm({ initial, gateEntryNumber, onSave, onCancel }: {
         <TextField label="LR no." value={v.lr_number} onChange={set('lr_number')} error={errors.lr_number} />
         <TextField label="E-way bill no." inputMode="numeric" value={v.eway_bill_number} onChange={set('eway_bill_number')} error={errors.eway_bill_number} />
         <TextField label="Driver mobile no." type="tel" inputMode="tel" placeholder="9876543210" value={v.driver_mobile} onChange={set('driver_mobile')} error={errors.driver_mobile} />
+        <TextField label="DL no." placeholder="Driving licence no." value={v.driver_licence_number}
+          onChange={(e) => set('driver_licence_number')({ target: { value: e.target.value.toUpperCase() } })} error={errors.driver_licence_number} />
         <TextField label="Driver name" value={v.driver_name} onChange={set('driver_name')} error={errors.driver_name} />
       </section>
 

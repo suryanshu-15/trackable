@@ -58,7 +58,7 @@ export default function GatePage() {
 
       <Card title="Gate entries" className="mt-6">
         <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <TextField label="Search" placeholder="Gate entry, vehicle, invoice, supplier, LR, e-way bill" value={list.filters.search ?? ''}
+          <TextField label="Search" placeholder="Gate entry, vehicle, invoice, supplier, LR, e-way bill, DL no." value={list.filters.search ?? ''}
             onChange={(e) => list.setFilter('search', e.target.value)} className="lg:col-span-2" />
           <SelectField label="Status" value={list.filters.status ?? ''} onChange={(e) => list.setFilter('status', e.target.value)} placeholder="All"
             options={STATUSES.map((s) => ({ value: s, label: statusLabel(s) }))} />

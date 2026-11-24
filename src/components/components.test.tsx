@@ -40,7 +40,7 @@ describe('Gate entry form', () => {
   it('sends the gate register columns and every material row, defaulting new rows to tonnes', async () => {
     mockFetch(masters);
     const onSave = vi.fn().mockResolvedValue(undefined);
-    renderWithProviders(<GateEntryForm initial={{ ...filled(), transporter_name: 'Kalinga Roadlines', lr_number: 'LR-1', eway_bill_number: '3210', driver_mobile: '9876543210' }}
+    renderWithProviders(<GateEntryForm initial={{ ...filled(), transporter_name: 'Kalinga Roadlines', lr_number: 'LR-1', eway_bill_number: '3210', driver_mobile: '9876543210', driver_licence_number: 'OD0220150012345' }}
       onSave={onSave} onCancel={() => undefined} />);
     await userEvent.click(screen.getByRole('button', { name: '+ Add another material' }));
     await userEvent.type(screen.getAllByRole('combobox', { name: /Material/ })[1], 'soda');
@@ -51,7 +51,7 @@ describe('Gate entry form', () => {
     const [body, ack, send] = onSave.mock.calls[0];
     expect([ack, send]).toEqual([false, true]);
     expect(body).toMatchObject({ supplier: 1, invoice_number: 'INV-1', vehicle_number: 'OD02AB1234', transporter_name: 'Kalinga Roadlines',
-      lr_number: 'LR-1', eway_bill_number: '3210', driver_mobile: '9876543210', send: true });
+      lr_number: 'LR-1', eway_bill_number: '3210', driver_mobile: '9876543210', driver_licence_number: 'OD0220150012345', send: true });
     expect(body.lines).toEqual([
       { material: 5, material_name_declared: 'Soda ash', declared_quantity: '1', declared_unit: 2, storage_location: 9 },
       { material: 5, material_name_declared: 'Soda ash', declared_quantity: '0.5', declared_unit: 2, storage_location: null },
