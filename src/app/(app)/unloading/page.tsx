@@ -17,6 +17,7 @@ import { ScanBox } from '@/components/Scanner';
 import { MoveDialog } from '@/components/inventory/PackageActions';
 import { useToast } from '@/components/Toast';
 import { WeighDialog } from '@/components/receiving/WeighDialog';
+import { BulkPutawayDialog } from '@/components/inventory/BulkPutawayDialog';
 import { WeightCorrectionDialog } from '@/components/receiving/WeightCorrectionDialog';
 
 /** What receiving does next with a truck in the queue. */
@@ -49,6 +50,8 @@ export default function UnloadingPage() {
   const [startError, setStartError] = useState<unknown>(null);
   const [weighing, setWeighing] = useState<ReceiptListItem | null>(null);
   const [editingWeight, setEditingWeight] = useState<ReceiptListItem | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [bulk, setBulk] = useState(false);
   const inQueue = QUEUE.flatMap((s) => (queue.data?.results ?? []).filter((r) => r.status === s));
   const found = inQueue.filter((r) => matchesTruck(r, truck));
   // Not in the queue? Say where that truck is (e.g. still a draft at the gate).
@@ -154,11 +157,14 @@ export default function UnloadingPage() {
           )}
         </Card>
 
-        <Card title={`Bags waiting for put-away (${putaway.data?.count ?? '…'})`}>
+        <Card title={`Bags waiting for put-away (${putaway.data?.count ?? '…'})`}
+          actions={me.data && can.unload(me.data.role) && !!putaway.data?.results.length && (
+            <Button disabled={!picked.length} onClick={() => setBulk(true)}>Put away selected ({picked.length})</Button>
+          )}>
           {!putaway.data ? <Loading /> : putaway.data.results.length === 0 ? <p className="text-sm text-slate-500">Nothing awaiting put-away.</p> : (
             <>
-              {putaway.data.results.some((p) => p.requires_quarantine) && <Alert tone="info">Bags waiting for the lab must go to a quarantine location.</Alert>}
-              <div className="mt-2"><PackageTable rows={putaway.data.results} /></div>
+              <p className="mb-2 text-xs text-slate-500">Tick the bags going to the same place (or tick the box in the header for all), then <strong>Put away selected</strong>. Bags waiting for the lab can only go to quarantine.</p>
+              <PackageTable rows={putaway.data.results} picked={picked} onPick={setPicked} />
             </>
           )}
         </Card>
@@ -167,6 +173,8 @@ export default function UnloadingPage() {
         <WeightCorrectionDialog open receipt={editingWeight} onClose={() => setEditingWeight(null)}
           onDone={() => { toast(`Weight updated for ${editingWeight.vehicle_number}; the change is recorded.`); refresh(); }} />
       )}
+      <BulkPutawayDialog open={bulk} bags={(putaway.data?.results ?? []).filter((p) => picked.includes(p.id))} onClose={() => setBulk(false)}
+        onDone={(stored) => { toast(`${stored.length} bag(s) put away at ${stored[0]?.location_code ?? 'the location'}.`); setPicked([]); refresh(); }} />
       {weighing && (
         <WeighDialog stage="LOADED" receipt={{ id: weighing.id, gross_weight: null, weight_unit: null, weight_unit_symbol: '', invoice_weight_kg: weighing.invoice_weight_kg }}
           onClose={() => setWeighing(null)}
@@ -180,17 +188,24 @@ export default function UnloadingPage() {
   );
 }
 
-function PackageTable({ rows }: { rows: PackageListItem[] }) {
+function PackageTable({ rows, picked, onPick }: { rows: PackageListItem[]; picked?: string[]; onPick?: (ids: string[]) => void }) {
+  const selectable = !!onPick && !!picked;
+  const all = selectable && rows.length > 0 && rows.every((p) => picked!.includes(p.id));
+  const toggle = (id: string) => onPick?.(picked!.includes(id) ? picked!.filter((x) => x !== id) : [...picked!, id]);
   return (
-    <Table head={['Bag', 'Material', 'Lot', 'Quantity', 'Lab', 'Receipt']}>
+    <Table head={[
+      ...(selectable ? [<input key="all" type="checkbox" className="h-5 w-5" aria-label="Select all bags" checked={all} onChange={() => onPick!(all ? [] : rows.map((p) => p.id))} />] : []),
+      'Bag', 'Material', 'Lot', 'Quantity', 'Lab', 'Gate entry',
+    ]}>
       {rows.map((p) => (
-        <tr key={p.id}>
+        <tr key={p.id} className={selectable && picked!.includes(p.id) ? 'bg-brand-50' : ''}>
+          {selectable && <Td><input type="checkbox" className="h-5 w-5" aria-label={`Select ${p.package_id}`} checked={picked!.includes(p.id)} onChange={() => toggle(p.id)} /></Td>}
           <Td><Link className="font-mono text-brand-700 hover:underline" href={`/packages/${p.id}`}>{p.package_id}</Link></Td>
-          <Td>{p.material_code}</Td>
+          <Td>{p.material_name ?? p.material_code}</Td>
           <Td className="font-mono">{p.batch_number || '—'}</Td>
           <Td>{fmtQty(p.current_quantity, p.unit_symbol)}</Td>
           <Td><StatusBadge status={p.qc_status} />{p.requires_quarantine && <span className="ml-1 text-xs text-amber-700">→ quarantine</span>}</Td>
-          <Td className="font-mono text-xs">{p.receipt_number}</Td>
+          <Td className="font-mono text-xs">{p.gate_entry_number ?? p.receipt_number}</Td>
         </tr>
       ))}
     </Table>

@@ -21,6 +21,7 @@ import { PackagesDialog, VerifyDialog } from '@/components/receiving/LineDialogs
 import { GateEntryForm, initialGateEntry } from '@/components/receiving/GateEntryForm';
 import { WeighDialog } from '@/components/receiving/WeighDialog';
 import { WeightCorrectionDialog } from '@/components/receiving/WeightCorrectionDialog';
+import { BulkPutawayDialog } from '@/components/inventory/BulkPutawayDialog';
 import { TextField } from '@/components/forms';
 
 const DOC_TYPES = ['INVOICE', 'DELIVERY_CHALLAN', 'WEIGHMENT_SLIP', 'QC_REPORT', 'PACKING_LIST', 'OTHER'];
@@ -47,6 +48,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState<null | 'cancel' | 'problem' | 'close' | 'finish' | 'out'>(null);
   const [correcting, setCorrecting] = useState(false);
+  const [puttingAway, setPuttingAway] = useState(false);
   const [created, setCreated] = useState<PackageListItem[] | null>(null);
   const [outAt, setOutAt] = useState('');
 
@@ -56,6 +58,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   const vByLine = new Map((verifications.data?.results ?? []).map((v) => [v.invoice_line, v]));
   const pkgs = packages.data?.results ?? [];
   const unlabelled = pkgs.filter((p) => p.label_print_count === 0);
+  const awaiting = pkgs.filter((p) => p.status === 'AWAITING_PUTAWAY');
   const wd = r.weight_discrepancy as WeightCheck | null;
   const unloading = ['UNLOADING_IN_PROGRESS', 'EXCEPTION', 'VERIFICATION_PENDING'].includes(r.status);
   const canUnload = can.unload(role);
@@ -110,8 +113,10 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           action: canUnload ? <Button size="lg" variant="success" onClick={() => setConfirm('finish')}>Finish unloading</Button> : waitFor('receiving') };
       case 'UNLOADED':
       case 'PUTAWAY_IN_PROGRESS':
-        return { index: 5, title: 'Put the bags away', text: 'Scan each bag label and its storage location. Bags waiting for the lab go to quarantine.',
-          action: canUnload ? <LinkButton href="/unloading" variant="primary" size="lg">Go to put-away</LinkButton> : waitFor('receiving') };
+        return { index: 5, title: 'Put the bags away', text: `${awaiting.length} bag(s) to put away. Choose one location for several bags at once; bags waiting for the lab go to quarantine.`,
+          action: canUnload ? (awaiting.length
+            ? <Button size="lg" onClick={() => setPuttingAway(true)}>Put away bags ({awaiting.length})</Button>
+            : <span className="text-slate-600">Print the labels first — bags can be put away once labelled.</span>) : waitFor('receiving') };
       case 'STORED':
       case 'CLOSED':
         if (!r.gate_out_at) {
@@ -327,6 +332,8 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             refresh();
           }} />
       </Modal>
+      <BulkPutawayDialog open={puttingAway} bags={awaiting} onClose={() => setPuttingAway(false)}
+        onDone={(stored) => { toast(`${stored.length} bag(s) put away at ${stored[0]?.location_code ?? 'the location'}.`); refresh(); }} />
       <WeightCorrectionDialog open={correcting} onClose={() => setCorrecting(false)} receipt={r} onDone={() => { toast('Weight updated; the change is recorded.'); refresh(); }} />
     </>
   );

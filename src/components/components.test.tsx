@@ -488,3 +488,46 @@ describe('Factory request for a mixture', () => {
       lines: [{ material: 5, percentage: '70' }, { material: 6, percentage: '30' }] });
   });
 });
+
+describe('Bags of different sizes', () => {
+  it('makes 2 × 2 kg + 2 × 3 kg bags on a line counted in tonnes', async () => {
+    const posted: unknown[] = [];
+    mockFetch({
+      '/bff/master/units': { body: page([{ id: 1, code: 'KG', name: 'Kilogram', symbol: 'kg', unit_type: 'WEIGHT' }, { id: 2, code: 'T', name: 'Tonne', symbol: 't', unit_type: 'WEIGHT' }]) },
+      '/bff/policy': { body: { 'package.type': 'BAG' } },
+      'POST /bff/receiving/invoice-lines/l1/packages': (init) => { posted.push(JSON.parse(String(init?.body))); return { status: 201, body: [] }; },
+    });
+    const { PackagesDialog } = await import('./receiving/LineDialogs');
+    const line = { id: 'l1', line_number: 1, declared_unit: 2, declared_unit_symbol: 't', batch_number: 'LOT-FE', expiry_date: '2027-11-01', retest_date: '2027-05-01' };
+    const verification = { received_unit: 2, received_unit_symbol: 't', accepted_quantity: '0.01', packaged_quantity: '0' };
+    renderWithProviders(<PackagesDialog open line={line as never} verification={verification as never} onClose={() => undefined} onCreated={() => undefined} />);
+    await screen.findByRole('option', { name: 'kg' });
+    await userEvent.type(screen.getByLabelText('Number of bags'), '2');
+    await userEvent.type(screen.getByLabelText('Weight of each'), '2');
+    await userEvent.selectOptions(screen.getByLabelText('Unit for row 1'), '1');
+    await userEvent.click(screen.getByRole('button', { name: '+ Add another size' }));
+    await userEvent.type(screen.getAllByLabelText('Number of bags')[1], '2');
+    await userEvent.type(screen.getAllByLabelText('Weight of each')[1], '3');
+    await userEvent.selectOptions(screen.getByLabelText('Unit for row 2'), '1');
+    expect(screen.getByText(/2 × 2 kg \+ 2 × 3 kg/)).toBeInTheDocument();
+    expect(screen.getByText('✓ everything bagged')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Create packages' }));
+    await waitFor(() => expect(posted).toHaveLength(1));
+    expect((posted[0] as { packages: { quantity: string; batch_number: string }[] }).packages.map((p) => [p.quantity, p.batch_number]))
+      .toEqual([['0.002', 'LOT-FE'], ['0.002', 'LOT-FE'], ['0.003', 'LOT-FE'], ['0.003', 'LOT-FE']]);
+  });
+
+  it('refuses more than is still to bag', async () => {
+    mockFetch({
+      '/bff/master/units': { body: page([{ id: 2, code: 'T', name: 'Tonne', symbol: 't', unit_type: 'WEIGHT' }]) },
+      '/bff/policy': { body: { 'package.type': 'BAG' } },
+    });
+    const { PackagesDialog } = await import('./receiving/LineDialogs');
+    renderWithProviders(<PackagesDialog open line={{ id: 'l1', line_number: 1, declared_unit: 2, declared_unit_symbol: 't' } as never}
+      verification={{ received_unit: 2, received_unit_symbol: 't', accepted_quantity: '1', packaged_quantity: '0.5' } as never} onClose={() => undefined} onCreated={() => undefined} />);
+    await userEvent.type(await screen.findByLabelText('Number of bags'), '2');
+    await userEvent.type(screen.getByLabelText('Weight of each'), '0.5');
+    await userEvent.click(screen.getByRole('button', { name: 'Create packages' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('more than the 0.5 t not yet bagged');
+  });
+});

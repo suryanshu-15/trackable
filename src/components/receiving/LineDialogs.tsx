@@ -6,7 +6,7 @@ import { useApi, useMaterials, usePolicy, useUnits } from '@/lib/hooks';
 import { fmtQty } from '@/lib/format';
 import type { InvoiceLine, PackageListItem, Verification } from '@/lib/types';
 import { Modal } from '../Dialog';
-import { ActionError, Alert, Button, Tabs } from '../ui';
+import { ActionError, Alert, Button } from '../ui';
 import { TextArea, TextField, compact, validate } from '../forms';
 import { MasterSelect } from '@/components/master/MasterSelect';
 
@@ -275,13 +275,19 @@ export function VerifyDialog({ open, onClose, line, onSaved }: {
 // Package generation
 // ---------------------------------------------------------------------------
 
+/** kg per unit, for the weight units bags are made in. */
+const KG_PER: Record<string, number> = { G: 0.001, KG: 1, T: 1000 };
+type SizeRow = { count: string; weight: string; unit: string };
+
+/**
+ * Make bags for a checked line. Bags can be of different sizes: one row per size, e.g. 2 bags of 2 kg
+ * and 2 bags of 3 kg. Weights may be typed in kg or t; they are converted to the line's unit.
+ */
 export function PackagesDialog({ open, onClose, line, verification, onCreated }: {
   open: boolean; onClose: () => void; line: InvoiceLine | null; verification?: Verification; onCreated: (pkgs: PackageListItem[]) => void;
 }) {
-  const [mode, setMode] = useState<'equal' | 'custom'>('equal');
-  const [count, setCount] = useState('');
-  const [each, setEach] = useState('');
-  const [custom, setCustom] = useState('');
+  const units = useUnits();
+  const [rows, setRows] = useState<SizeRow[]>([]);
   const [batch, setBatch] = useState('');
   const [expiry, setExpiry] = useState('');
   const [retest, setRetest] = useState('');
@@ -289,12 +295,14 @@ export function PackagesDialog({ open, onClose, line, verification, onCreated }:
   const kind = (usePolicy().data?.['package.type'] || 'package').toLowerCase();
   // One key per dialog opening: a retried submit (timeout, double tap) cannot create packages twice.
   const key = useMemo(() => (open ? newIdempotencyKey() : ''), [open]);
+  const lineUnitId = verification?.received_unit ?? line?.declared_unit;
+  const lineUnit = units.items.find((u) => u.id === lineUnitId);
 
   useEffect(() => {
     if (!open || !line) return;
     s.setError(null);
     s.setFieldErrors({});
-    setCount(''); setEach(''); setCustom('');
+    setRows([{ count: '', weight: '', unit: lineUnitId ? String(lineUnitId) : '' }]);
     setBatch(line.batch_number || '');
     setExpiry(line.expiry_date || '');
     setRetest(line.retest_date || '');
@@ -305,23 +313,32 @@ export function PackagesDialog({ open, onClose, line, verification, onCreated }:
   const accepted = Number(verification?.accepted_quantity ?? line.accepted_quantity ?? 0);
   const packaged = Number(verification?.packaged_quantity ?? 0);
   const remaining = Math.max(0, accepted - packaged);
-  const quantities = mode === 'equal'
-    ? (Number(count) > 0 && Number(each) > 0 ? Array(Math.floor(Number(count))).fill(Number(each)) : [])
-    : custom.split(/[\s,;]+/).filter(Boolean).map(Number);
-  const total = quantities.reduce((a, b) => a + b, 0);
   const unit = verification?.received_unit_symbol || line.declared_unit_symbol;
+  // Weight units bags can be typed in: the line's unit, plus kg / t when it is a weight.
+  const unitChoices = units.items.filter((u) => u.id === lineUnitId || (lineUnit && KG_PER[lineUnit.code] && KG_PER[u.code]));
+
+  const toLineUnit = (weight: number, unitId: string) => {
+    const from = units.items.find((u) => String(u.id) === unitId);
+    if (!from || !lineUnit || from.id === lineUnit.id) return weight;
+    if (!KG_PER[from.code] || !KG_PER[lineUnit.code]) return NaN;
+    return Math.round((weight * KG_PER[from.code]) / KG_PER[lineUnit.code] * 10000) / 10000;
+  };
+  const sizes = rows.map((r) => ({ ...r, n: Math.floor(Number(r.count)), each: toLineUnit(Number(r.weight), r.unit) }));
+  const quantities = sizes.flatMap((r) => (r.n > 0 && r.each > 0 ? Array(r.n).fill(r.each) : []));
+  const total = Math.round(quantities.reduce((a, b) => a + b, 0) * 10000) / 10000;
+  const setRow = (i: number, patch: Partial<SizeRow>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const local: Errors = {};
-    if (!quantities.length || quantities.some((q) => !(q > 0))) local.quantities = 'Enter at least one package with a quantity above zero.';
-    else if (total > remaining + 1e-9) local.quantities = `Total ${fmtQty(total, unit)} exceeds the ${fmtQty(remaining, unit)} not yet packaged.`;
+    const bad = sizes.find((r) => (r.count || r.weight) && !(r.n > 0 && r.each > 0));
+    if (bad) local.quantities = Number.isNaN(bad.each) ? 'This weight unit cannot be converted to the line unit.' : `Each row needs a number of ${kind}s and a weight above zero.`;
+    else if (!quantities.length) local.quantities = `Enter at least one row: number of ${kind}s and weight of each.`;
+    else if (total > remaining + 1e-9) local.quantities = `Total ${fmtQty(total, unit)} is more than the ${fmtQty(remaining, unit)} not yet bagged.`;
     s.setFieldErrors(local);
     if (Object.keys(local).length) return;
     const shared = compact({ batch_number: batch, expiry_date: expiry, retest_date: retest });
-    const body = mode === 'equal'
-      ? { count: quantities.length, quantity_each: String(each), ...shared }
-      : { packages: quantities.map((q) => ({ quantity: String(q), ...shared })) };
+    const body = { packages: quantities.map((q) => ({ quantity: String(q), ...shared })) };
     s.run(async () => {
       onCreated(await post<PackageListItem[]>(`receiving/invoice-lines/${line.id}/packages`, body, { idempotencyKey: key }));
       onClose();
@@ -329,26 +346,45 @@ export function PackagesDialog({ open, onClose, line, verification, onCreated }:
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Create ${kind}s — line ${line.line_number}`}>
+    <Modal open={open} onClose={onClose} title={`Make ${kind}s — line ${line.line_number}`} wide>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <p className="text-sm text-slate-600">
-          Accepted {fmtQty(accepted, unit)} · already packaged {fmtQty(packaged, unit)} · <strong>remaining {fmtQty(remaining, unit)}</strong>
+          Accepted {fmtQty(accepted, unit)} · already bagged {fmtQty(packaged, unit)} · <strong>still to bag {fmtQty(remaining, unit)}</strong>
         </p>
-        <Tabs tabs={[{ value: 'equal', label: `Equal ${kind}s` }, { value: 'custom', label: 'Individual quantities' }]} value={mode} onChange={setMode} />
-        {mode === 'equal' ? (
-          <div className="grid grid-cols-2 gap-4">
-            <TextField label={`Number of ${kind}s`} type="number" inputMode="numeric" min="1" step="1" value={count} onChange={(e) => setCount(e.target.value)} autoFocus />
-            <TextField label={`Quantity each (${unit})`} type="number" inputMode="decimal" step="any" min="0" value={each} onChange={(e) => setEach(e.target.value)} />
-          </div>
-        ) : (
-          <TextArea label={`Quantities (${unit})`} hint={`One per ${kind}, separated by commas or new lines, e.g. 1, 1, 0.5`} value={custom} onChange={(e) => setCustom(e.target.value)} />
-        )}
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-700">{kind.charAt(0).toUpperCase() + kind.slice(1)} sizes</p>
+          {rows.map((r, i) => (
+            <div key={i} className="grid grid-cols-12 items-end gap-2">
+              <TextField className="col-span-4" label={`Number of ${kind}s`} type="number" inputMode="numeric" min="1" step="1" value={r.count}
+                onChange={(e) => setRow(i, { count: e.target.value })} autoFocus={i === 0} />
+              <TextField className="col-span-4" label="Weight of each" type="number" inputMode="decimal" step="any" min="0" value={r.weight}
+                onChange={(e) => setRow(i, { weight: e.target.value })} />
+              <label className="col-span-2 block">
+                <span className="block text-sm font-medium text-slate-700">Unit</span>
+                <select className="mt-1 block w-full rounded-lg border-0 px-2 py-2.5 text-sm shadow-sm ring-1 ring-inset ring-slate-300" value={r.unit}
+                  onChange={(e) => setRow(i, { unit: e.target.value })} aria-label={`Unit for row ${i + 1}`}>
+                  {unitChoices.map((u) => <option key={u.id} value={u.id}>{u.symbol}</option>)}
+                </select>
+              </label>
+              <div className="col-span-2 pb-2">
+                {rows.length > 1 && <Button variant="ghost" size="sm" aria-label={`Remove size ${i + 1}`} onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}>Remove</Button>}
+              </div>
+            </div>
+          ))}
+          <Button variant="secondary" size="sm" onClick={() => setRows((rs) => [...rs, { count: '', weight: '', unit: lineUnitId ? String(lineUnitId) : '' }])}>
+            + Add another size
+          </Button>
+        </div>
         <div className="grid grid-cols-3 gap-4">
           <TextField label="Batch / lot" value={batch} onChange={(e) => setBatch(e.target.value)} />
           <TextField label="Expiry" type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} />
           <TextField label="Retest date" type="date" value={retest} onChange={(e) => setRetest(e.target.value)} />
         </div>
-        <p className="text-sm">{quantities.length} {kind}(s), total <strong>{fmtQty(total, unit)}</strong></p>
+        <p className="rounded-lg bg-slate-50 p-3 text-sm">
+          {quantities.length} {kind}(s){sizes.filter((r) => r.n > 0 && r.each > 0).length > 0 && <>: {sizes.filter((r) => r.n > 0 && r.each > 0)
+            .map((r) => `${r.n} × ${r.weight} ${units.items.find((u) => String(u.id) === r.unit)?.symbol ?? ''}`).join(' + ')}</>} — total <strong>{fmtQty(total, unit)}</strong>
+          {total > 0 && Math.abs(total - remaining) < 1e-9 && <span className="ml-2 text-emerald-700">✓ everything bagged</span>}
+        </p>
         {s.fieldErrors.quantities && <p role="alert" className="text-sm text-red-700">{s.fieldErrors.quantities}</p>}
         <ActionError error={s.error} />
         <div className="flex justify-end gap-2">

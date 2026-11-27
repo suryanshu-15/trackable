@@ -591,6 +591,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/packages/bulk-putaway/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Put several bags away in one location at once (all or nothing). */
+        post: operations["inventory_packages_bulk_putaway_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/packages/resolve/": {
         parameters: {
             query?: never;
@@ -2386,6 +2403,12 @@ export interface components {
             readonly after_state: unknown;
             readonly extra: unknown;
         };
+        BulkPutawayRequest: {
+            packages: string[];
+            location: number;
+            /** @default  */
+            notes: string;
+        };
         ChangePasswordRequest: {
             old_password: string;
             new_password: string;
@@ -3479,6 +3502,8 @@ export interface components {
             readonly material: number;
             readonly material_code: string;
             readonly material_name: string;
+            readonly gate_entry_number: string;
+            readonly planned_location: number;
             /** Format: decimal */
             readonly original_quantity: string;
             /** Format: decimal */
@@ -5910,6 +5935,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Package"];
+                };
+            };
+        };
+    };
+    inventory_packages_bulk_putaway_create: {
+        parameters: {
+            query?: {
+                available?: boolean;
+                batch_number?: string;
+                current_location?: number;
+                expiring_before?: string;
+                in_warehouse?: boolean;
+                invoice_line?: string;
+                is_on_hold?: boolean;
+                is_recalled?: boolean;
+                material?: number;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                parent_package?: string;
+                /** @description * `NOT_REQUIRED` - QC Not Required
+                 *     * `PENDING_SAMPLING` - Pending Sampling
+                 *     * `SAMPLED` - Sampled
+                 *     * `TESTING` - Testing
+                 *     * `PASSED` - Passed
+                 *     * `FAILED` - Failed
+                 *     * `ON_HOLD` - On Hold
+                 *     * `RETEST_REQUIRED` - Retest Required */
+                qc_status?: ("FAILED" | "NOT_REQUIRED" | "ON_HOLD" | "PASSED" | "PENDING_SAMPLING" | "RETEST_REQUIRED" | "SAMPLED" | "TESTING")[];
+                receipt?: string;
+                /** @description A search term. */
+                search?: string;
+                /** @description * `CREATED` - Created (label not printed)
+                 *     * `AWAITING_PUTAWAY` - Awaiting Put-away
+                 *     * `STORED` - Stored
+                 *     * `ISSUED` - Fully Issued
+                 *     * `REPACKED` - Repacked into child packages
+                 *     * `DISPOSED` - Disposed
+                 *     * `SUPPLIER_RETURNED` - Returned to Supplier */
+                status?: ("AWAITING_PUTAWAY" | "CREATED" | "DISPOSED" | "ISSUED" | "REPACKED" | "STORED" | "SUPPLIER_RETURNED")[];
+                supplier?: number;
+                warehouse?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkPutawayRequest"];
+                "multipart/form-data": components["schemas"]["BulkPutawayRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["BulkPutawayRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPackageListList"];
                 };
             };
         };
